@@ -131,9 +131,7 @@ vsce publish major  # 1.0.0 -> 2.0.0
 - `cost katana`
 
 ### **Categories**
-- **Primary**: Developer Tools
-- **Secondary**: Machine Learning
-- **Tertiary**: Productivity
+- **Primary**: Other
 
 ### **Tags**
 - `ai`, `cost`, `optimization`, `cursor`, `gpt`, `claude`, `gemini`

@@ -2,20 +2,17 @@
   "name": "cost-katana-ai-optimizer",
   "displayName": "Cost Katana AI Optimizer",
   "description": "AI-powered cost optimization for Cursor/VS Code - Track, analyze, and optimize AI usage across 30+ models (GPT-4, Claude, Gemini, etc.)",
-  "version": "1.0.0",
-  "publisher": "abdul0051",
+  "version": "1.0.3",
+  "publisher": "abdulsagheer",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cost-katana/extension.git"
+    "url": "https://github.com/Hypothesize-Tech/ai-cost-optimizer-extension.git"
   },
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other",
-    "Machine Learning",
-    "Developer Tools",
-    "Productivity"
+    "Other"
   ],
   "keywords": [
     "ai",
@@ -214,7 +211,7 @@
     "axios": "^1.6.5"
   },
   "bugs": {
-    "url": "https://github.com/cost-katana/extension/issues"
+    "url": "https://github.com/Hypothesize-Tech/ai-cost-optimizer-extension/issues"
   },
   "homepage": "https://cost-katana.com",
   "license": "MIT"
