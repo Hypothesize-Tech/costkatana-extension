@@ -103,11 +103,18 @@ interface PromptTemplateData {
 export class CostKatanaAPI {
     private baseUrl: string;
     private apiKey: string | undefined;
+    private userId: string | undefined;
+
+    // Getter for apiKey to allow external access
+    get hasApiKey(): boolean {
+        return !!this.apiKey;
+    }
 
     constructor() {
         const config = vscode.workspace.getConfiguration('costKatana');
         this.baseUrl = config.get('backendUrl') || 'https://cost-katana-backend.store/api';
         this.apiKey = config.get('apiKey');
+        this.userId = config.get('userId');
     }
 
     private async makeRequest<T>(
@@ -121,6 +128,7 @@ export class CostKatanaAPI {
                 'Content-Type': 'application/json',
             };
 
+            // Add authentication
             if (this.apiKey) {
                 headers['Authorization'] = `Bearer ${this.apiKey}`;
             }
@@ -176,6 +184,8 @@ export class CostKatanaAPI {
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'track_usage',
+            user_id: this.userId,
+            api_key: this.apiKey,
             ai_request: {
                 prompt: usageData.prompt,
                 response: usageData.response,
@@ -207,6 +217,8 @@ export class CostKatanaAPI {
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'optimize_prompt',
+            user_id: this.userId,
+            api_key: this.apiKey,
             optimization_request: {
                 prompt: optimizationData.prompt,
                 current_tokens: optimizationData.currentTokens,
@@ -230,7 +242,9 @@ export class CostKatanaAPI {
         };
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_analytics'
+            action: 'get_analytics',
+            user_id: this.userId,
+            api_key: this.apiKey
         });
     }
 
@@ -241,6 +255,8 @@ export class CostKatanaAPI {
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'workspace_setup',
+            user_id: this.userId,
+            api_key: this.apiKey,
             workspace: workspaceData
         });
     }
@@ -256,6 +272,8 @@ export class CostKatanaAPI {
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'get_suggestions',
+            user_id: this.userId,
+            api_key: this.apiKey,
             code_context: {
                 code_snippet: suggestionsData.code_snippet,
                 language: suggestionsData.language,
@@ -281,6 +299,8 @@ export class CostKatanaAPI {
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'analyze_code',
+            user_id: this.userId,
+            api_key: this.apiKey,
             code_context: {
                 code_snippet: analysisData.code_snippet,
                 language: analysisData.language,
@@ -302,7 +322,9 @@ export class CostKatanaAPI {
         total_projects: number;
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_projects'
+            action: 'get_projects',
+            user_id: this.userId,
+            api_key: this.apiKey
         });
     }
 
@@ -313,6 +335,8 @@ export class CostKatanaAPI {
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'create_project',
+            user_id: this.userId,
+            api_key: this.apiKey,
             workspace: {
                 name: projectData.name,
                 description: projectData.description,
@@ -337,7 +361,11 @@ export class CostKatanaAPI {
             };
         }>;
     }>> {
-        return this.makeRequest('/intelligence/personalized-tips');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'get_personalized_tips',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     async getTipsForUsage(usageId: string): Promise<APIResponse<{
@@ -349,11 +377,22 @@ export class CostKatanaAPI {
             priority: string;
         }>;
     }>> {
-        return this.makeRequest('/intelligence/tips-for-usage', 'POST', { usageId });
+        return this.makeRequest('/cursor/action', 'POST', { 
+            action: 'get_tips_for_usage',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            usage_id: usageId 
+        });
     }
 
-    async trackTipInteraction(tipId: string, action: 'view' | 'apply' | 'dismiss'): Promise<APIResponse> {
-        return this.makeRequest('/intelligence/track-interaction', 'POST', { tipId, action });
+    async trackTipInteraction(tipId: string, interactionAction: 'view' | 'apply' | 'dismiss'): Promise<APIResponse> {
+        return this.makeRequest('/cursor/action', 'POST', { 
+            action: 'track_tip_interaction',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            tipId, 
+            interaction_action: interactionAction 
+        });
     }
 
     async scoreResponseQuality(intelligenceData: IntelligenceData): Promise<APIResponse<{
@@ -365,7 +404,12 @@ export class CostKatanaAPI {
         };
         optimizationType: string[];
     }>> {
-        return this.makeRequest('/intelligence/score-quality', 'POST', intelligenceData);
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'score_response_quality',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            ...intelligenceData
+        });
     }
 
     async compareQuality(originalScore: number, optimizedScore: number): Promise<APIResponse<{
@@ -373,7 +417,10 @@ export class CostKatanaAPI {
         recommendation: string;
         costImpact: number;
     }>> {
-        return this.makeRequest('/intelligence/compare-quality', 'POST', {
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'compare_quality',
+            user_id: this.userId,
+            api_key: this.apiKey,
             originalScore,
             optimizedScore
         });
@@ -389,7 +436,11 @@ export class CostKatanaAPI {
             priority: string;
         }>;
     }>> {
-        return this.makeRequest('/monitoring/trigger-user', 'POST');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'trigger_monitoring',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     async getUserUsageStatus(): Promise<APIResponse<{
@@ -406,7 +457,11 @@ export class CostKatanaAPI {
             severity: string;
         }>;
     }>> {
-        return this.makeRequest('/monitoring/user-status');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'get_user_status',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     async getSmartRecommendations(): Promise<APIResponse<{
@@ -419,7 +474,11 @@ export class CostKatanaAPI {
             implementation: string;
         }>;
     }>> {
-        return this.makeRequest('/monitoring/smart-recommendations');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'get_smart_recommendations',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     // ===== EXPERIMENTATION APIs =====
@@ -436,7 +495,11 @@ export class CostKatanaAPI {
             capabilities: string[];
         }>;
     }>> {
-        return this.makeRequest('/experimentation/available-models');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'get_available_models',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     async runModelComparison(experimentationData: ExperimentationData): Promise<APIResponse<{
@@ -449,7 +512,12 @@ export class CostKatanaAPI {
             tradeoffs: string[];
         }>;
     }>> {
-        return this.makeRequest('/experimentation/model-comparison', 'POST', experimentationData);
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'run_model_comparison',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            ...experimentationData
+        });
     }
 
     async estimateExperimentCost(experimentationData: ExperimentationData): Promise<APIResponse<{
@@ -461,7 +529,12 @@ export class CostKatanaAPI {
         }>;
         recommendations: string[];
     }>> {
-        return this.makeRequest('/experimentation/estimate-cost', 'POST', experimentationData);
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'estimate_experiment_cost',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            ...experimentationData
+        });
     }
 
     // ===== PRICING APIs =====
@@ -486,7 +559,11 @@ export class CostKatanaAPI {
             contextWindow: number;
         }>>;
     }>> {
-        return this.makeRequest('/pricing/all');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'get_all_pricing',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     async comparePricing(pricingData: PricingData): Promise<APIResponse<{
@@ -501,7 +578,12 @@ export class CostKatanaAPI {
         cheapest: string;
         recommendations: string[];
     }>> {
-        return this.makeRequest('/pricing/compare', 'POST', pricingData);
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'compare_pricing',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            ...pricingData
+        });
     }
 
     // ===== OPTIMIZATION APIs =====
@@ -517,7 +599,11 @@ export class CostKatanaAPI {
             createdAt: string;
         }>;
     }>> {
-        return this.makeRequest('/optimizations');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'get_optimizations',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     async applyOptimization(optimizationId: string): Promise<APIResponse<{
@@ -525,7 +611,12 @@ export class CostKatanaAPI {
         appliedPrompt: string;
         message: string;
     }>> {
-        return this.makeRequest('/optimizations/apply', 'POST', { optimizationId });
+        return this.makeRequest('/cursor/action', 'POST', { 
+            action: 'apply_optimization',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            optimizationId 
+        });
     }
 
     async analyzeOpportunities(): Promise<APIResponse<{
@@ -537,7 +628,11 @@ export class CostKatanaAPI {
             implementation: string;
         }>;
     }>> {
-        return this.makeRequest('/optimizations/opportunities');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'analyze_opportunities',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     // ===== PROMPT TEMPLATE APIs =====
@@ -554,14 +649,23 @@ export class CostKatanaAPI {
             };
         }>;
     }>> {
-        return this.makeRequest('/prompt-templates');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'get_prompt_templates',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     async createPromptTemplate(templateData: PromptTemplateData): Promise<APIResponse<{
         templateId: string;
         message: string;
     }>> {
-        return this.makeRequest('/prompt-templates', 'POST', templateData);
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'create_prompt_template',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            ...templateData
+        });
     }
 
     async useTemplate(templateId: string, variables: Record<string, string>): Promise<APIResponse<{
@@ -569,7 +673,13 @@ export class CostKatanaAPI {
         estimatedTokens: number;
         estimatedCost: number;
     }>> {
-        return this.makeRequest('/prompt-templates/use', 'POST', { templateId, variables });
+        return this.makeRequest('/cursor/action', 'POST', { 
+            action: 'use_template',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            templateId, 
+            variables 
+        });
     }
 
     // ===== FORECASTING APIs =====
@@ -582,7 +692,12 @@ export class CostKatanaAPI {
         }>;
         insights: string[];
     }>> {
-        return this.makeRequest('/forecasting/cost', 'POST', { period });
+        return this.makeRequest('/cursor/action', 'POST', { 
+            action: 'generate_cost_forecast',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            period 
+        });
     }
 
     async getPredictiveAlerts(): Promise<APIResponse<{
@@ -594,7 +709,11 @@ export class CostKatanaAPI {
             recommendations: string[];
         }>;
     }>> {
-        return this.makeRequest('/forecasting/predictive-alerts');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'get_predictive_alerts',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     // ===== PERFORMANCE COST ANALYSIS APIs =====
@@ -607,7 +726,11 @@ export class CostKatanaAPI {
             impact: string;
         }>;
     }>> {
-        return this.makeRequest('/performance-cost/correlation');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'analyze_cost_performance_correlation',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     async getEfficiencyScore(): Promise<APIResponse<{
@@ -619,7 +742,11 @@ export class CostKatanaAPI {
         };
         recommendations: string[];
     }>> {
-        return this.makeRequest('/performance-cost/efficiency-score');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'get_efficiency_score',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     // ===== AGENT APIs =====
@@ -639,7 +766,13 @@ export class CostKatanaAPI {
             executionTime: number;
         };
     }>> {
-        return this.makeRequest('/agent/query', 'POST', { query, context });
+        return this.makeRequest('/cursor/action', 'POST', { 
+            action: 'query_agent',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            query, 
+            context 
+        });
     }
 
     async getAgentStatus(): Promise<APIResponse<{
@@ -648,7 +781,11 @@ export class CostKatanaAPI {
         agentType: string;
         toolsCount: number;
     }>> {
-        return this.makeRequest('/agent/status');
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'get_agent_status',
+            user_id: this.userId,
+            api_key: this.apiKey
+        });
     }
 
     // ===== CHAT APIs =====
@@ -659,7 +796,14 @@ export class CostKatanaAPI {
         cost: number;
         tokenCount: number;
     }>> {
-        return this.makeRequest('/chat/send', 'POST', { message, modelId, conversationId });
+        return this.makeRequest('/cursor/action', 'POST', { 
+            action: 'send_chat_message',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            message, 
+            modelId, 
+            conversationId 
+        });
     }
 
     async getConversationHistory(conversationId: string): Promise<APIResponse<{
@@ -670,7 +814,12 @@ export class CostKatanaAPI {
             timestamp: string;
         }>;
     }>> {
-        return this.makeRequest(`/chat/conversation/${conversationId}`);
+        return this.makeRequest('/cursor/action', 'POST', {
+            action: 'get_conversation_history',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            conversationId
+        });
     }
 
     // ===== ANALYTICS APIs =====
@@ -693,22 +842,62 @@ export class CostKatanaAPI {
             };
         };
     }>> {
-        return this.makeRequest('/analytics/comparative', 'POST', { period1, period2 });
+        return this.makeRequest('/cursor/action', 'POST', { 
+            action: 'get_comparative_analytics',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            period1, 
+            period2 
+        });
     }
 
     async exportAnalytics(format: 'csv' | 'json' = 'csv'): Promise<APIResponse<{
         downloadUrl: string;
         expiresAt: string;
     }>> {
-        return this.makeRequest('/analytics/export', 'POST', { format });
+        return this.makeRequest('/cursor/action', 'POST', { 
+            action: 'export_analytics',
+            user_id: this.userId,
+            api_key: this.apiKey,
+            format 
+        });
     }
 
     // ===== UTILITY METHODS =====
     updateApiKey(apiKey: string) {
         this.apiKey = apiKey;
+        // Update VS Code settings
+        vscode.workspace.getConfiguration('costKatana').update('apiKey', apiKey, true);
+    }
+
+    updateUserId(userId: string) {
+        this.userId = userId;
+        // Update VS Code settings
+        vscode.workspace.getConfiguration('costKatana').update('userId', userId, true);
     }
 
     updateBaseUrl(baseUrl: string) {
         this.baseUrl = baseUrl;
+        // Update VS Code settings
+        vscode.workspace.getConfiguration('costKatana').update('backendUrl', baseUrl, true);
+    }
+
+    // ===== REAL-TIME TRACKING =====
+    async startRealTimeTracking(): Promise<void> {
+        // This would implement SSE for real-time updates
+        // For now, we'll use polling
+        setInterval(async () => {
+            try {
+                const status = await this.getUserUsageStatus();
+                if (status.success && status.data) {
+                    // Emit status update event
+                    vscode.window.showInformationMessage(
+                        `Status: ${status.data.status.toUpperCase()} - Budget: ${status.data.metrics.budgetUsed.toFixed(1)}%`
+                    );
+                }
+            } catch (error) {
+                // Silent fail for background polling
+            }
+        }, 30000); // Poll every 30 seconds
     }
 } 

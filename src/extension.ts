@@ -6,8 +6,95 @@ export function activate(context: vscode.ExtensionContext) {
 
     const api = new CostKatanaAPI();
 
-    // Register commands
-    let connectCommand = vscode.commands.registerCommand('cost-katana.connect', async () => {
+    // ===== AUTOMATIC USAGE TRACKING =====
+    let automaticTrackingEnabled = true;
+    let lastTrackedRequest: string | null = null;
+
+    // Monitor for AI interactions in Cursor
+    const trackAIInteraction = async (prompt: string, response: string, model: string = 'gpt-4o') => {
+        if (!automaticTrackingEnabled || !api.hasApiKey) {
+            return;
+        }
+
+        // Prevent duplicate tracking
+        const requestHash = `${prompt.substring(0, 100)}_${response.substring(0, 100)}`;
+        if (lastTrackedRequest === requestHash) {
+            return;
+        }
+        lastTrackedRequest = requestHash;
+
+        try {
+            const result = await api.trackUsage({
+                prompt,
+                response,
+                model,
+                codeContext: {
+                    file_path: vscode.window.activeTextEditor?.document.fileName,
+                    language: vscode.window.activeTextEditor?.document.languageId
+                }
+            });
+
+            if (result.success && result.data) {
+                // Show subtle notification for automatic tracking
+                vscode.window.showInformationMessage(
+                    `🤖 Tracked: $${result.data.cost.toFixed(6)} (${result.data.tokens} tokens)`,
+                    'View Details'
+                ).then(selection => {
+                    if (selection === 'View Details') {
+                        vscode.commands.executeCommand('cost-katana.show-analytics');
+                    }
+                });
+
+                // Show smart tip if available
+                if (result.data.smart_tip) {
+                    setTimeout(() => {
+                        vscode.window.showInformationMessage(result.data!.smart_tip);
+                    }, 1000);
+                }
+            }
+        } catch (error) {
+            // Silent fail for automatic tracking
+            console.log('Automatic tracking failed:', error);
+        }
+    };
+
+    // Monitor document changes for potential AI interactions
+    const documentChangeListener = vscode.workspace.onDidChangeTextDocument(async (event) => {
+        if (!automaticTrackingEnabled) return;
+
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || event.document !== editor.document) return;
+
+        // Look for patterns that suggest AI-generated content
+        const changes = event.contentChanges;
+        for (const change of changes) {
+            if (change.text.length > 50 && change.text.includes('\n')) {
+                // This might be AI-generated content
+                // We'll track it as a potential AI interaction
+                await trackAIInteraction(
+                    'AI-generated content detected',
+                    change.text,
+                    'gpt-4o'
+                );
+            }
+        }
+    });
+
+    // Monitor for Cursor AI commands
+    const cursorAIListener = vscode.commands.registerCommand('cursor.ai', async () => {
+        // This will be called when Cursor AI is used
+        // We'll track it as an AI interaction
+        await trackAIInteraction(
+            'Cursor AI interaction',
+            'AI response generated',
+            'cursor-small'
+        );
+    });
+
+    // ===== COMMAND REGISTRATION =====
+
+    // Connect Account Command
+    let connectAccountCommand = vscode.commands.registerCommand('cost-katana.connect-account', async () => {
         const email = await vscode.window.showInputBox({
             prompt: 'Enter your email to connect to Cost Katana',
             placeHolder: 'your.email@example.com'
@@ -24,6 +111,9 @@ export function activate(context: vscode.ExtensionContext) {
             if (response.success && response.data) {
                 vscode.window.showInformationMessage('Magic link generated! Opening in browser...');
                 vscode.env.openExternal(vscode.Uri.parse(response.data.magic_link));
+                
+                // Store email for later use
+                await vscode.workspace.getConfiguration('costKatana').update('userEmail', email, true);
             } else {
                 vscode.window.showErrorMessage(`Failed to generate magic link: ${response.error}`);
             }
@@ -32,6 +122,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Manual Track AI Usage Command
     let trackUsageCommand = vscode.commands.registerCommand('cost-katana.track-usage', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -118,6 +209,11 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showInformationMessage(
                     `Usage tracked! Cost: $${result.data.cost.toFixed(6)}, Tokens: ${result.data.tokens}`
                 );
+                
+                // Show smart tip if available
+                if (result.data.smart_tip) {
+                    vscode.window.showInformationMessage(result.data.smart_tip);
+                }
             } else {
                 vscode.window.showErrorMessage(`Failed to track usage: ${result.error}`);
             }
@@ -126,6 +222,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Optimize Prompt Command
     let optimizePromptCommand = vscode.commands.registerCommand('cost-katana.optimize-prompt', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -178,6 +275,44 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Show Analytics Command
+    let showAnalyticsCommand = vscode.commands.registerCommand('cost-katana.show-analytics', async () => {
+        try {
+            const result = await api.getAnalytics();
+            
+            if (result.success && result.data) {
+                const summary = result.data.summary;
+                const cursorSpecific = result.data.cursor_specific;
+                
+                // Create a more detailed analytics display
+                const analyticsMessage = `
+📊 **Cost Katana Analytics**
+
+💰 **Spending Summary:**
+• Monthly Spending: ${summary.total_spending_this_month}
+• Budget Used: ${summary.budget_used}
+• Active Projects: ${summary.active_projects}
+
+🤖 **Cursor Usage:**
+• Total Requests: ${cursorSpecific.total_requests}
+• Avg Tokens/Request: ${cursorSpecific.average_tokens_per_request}
+
+💡 **Quick Actions:**
+• Track Usage: Cost Katana: Track AI Usage
+• Optimize Prompts: Cost Katana: Optimize Prompt
+• Get Tips: Cost Katana: Get Personalized Tips
+                `.trim();
+
+                vscode.window.showInformationMessage(analyticsMessage);
+            } else {
+                vscode.window.showErrorMessage(`Failed to get analytics: ${result.error}`);
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    });
+
+    // Setup Workspace Command
     let setupWorkspaceCommand = vscode.commands.registerCommand('cost-katana.setup-workspace', async () => {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -224,7 +359,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             if (result.success && result.data) {
                 vscode.window.showInformationMessage(
-                    `Workspace "${workspaceName}" connected to project "${result.data.project_name}"`
+                    `✅ Workspace "${workspaceName}" connected to project "${result.data.project_name}"`
                 );
             } else {
                 vscode.window.showErrorMessage(`Failed to setup workspace: ${result.error}`);
@@ -234,6 +369,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Get Suggestions Command
     let getSuggestionsCommand = vscode.commands.registerCommand('cost-katana.get-suggestions', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -278,6 +414,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Analyze Code Command
     let analyzeCodeCommand = vscode.commands.registerCommand('cost-katana.analyze-code', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -303,9 +440,19 @@ export function activate(context: vscode.ExtensionContext) {
             if (result.success && result.data) {
                 const analysis = result.data.analysis;
                 vscode.window.showInformationMessage(
-                    `Code Analysis: Complexity Score ${analysis.complexityScore}, ` +
-                    `${analysis.lines} lines, ${analysis.functions} functions, ` +
-                    `Optimization Potential: ${analysis.optimizationPotential}`
+                    `🔍 **Code Analysis Results**
+
+📊 **Metrics:**
+• Complexity Score: ${analysis.complexityScore}
+• Lines of Code: ${analysis.lines}
+• Functions: ${analysis.functions}
+• Classes: ${analysis.classes}
+
+🎯 **Optimization Potential:** ${analysis.optimizationPotential}
+
+💡 **Recommendations:**
+${analysis.recommendations.map((rec, i) => `${i + 1}. ${rec.title} (${rec.priority})`).join('\n')}
+                `.trim()
                 );
             } else {
                 vscode.window.showErrorMessage(`Failed to analyze code: ${result.error}`);
@@ -315,30 +462,9 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    let showAnalyticsCommand = vscode.commands.registerCommand('cost-katana.show-analytics', async () => {
-        try {
-            const result = await api.getAnalytics();
-            
-            if (result.success && result.data) {
-                const summary = result.data.summary;
-                const cursorSpecific = result.data.cursor_specific;
-                
-                vscode.window.showInformationMessage(
-                    `Analytics Summary:\n` +
-                    `Monthly Spending: ${summary.total_spending_this_month}\n` +
-                    `Budget Used: ${summary.budget_used}\n` +
-                    `Active Projects: ${summary.active_projects}\n` +
-                    `Cursor Requests: ${cursorSpecific.total_requests}\n` +
-                    `Avg Tokens/Request: ${cursorSpecific.average_tokens_per_request}`
-                );
-            } else {
-                vscode.window.showErrorMessage(`Failed to get analytics: ${result.error}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    });
+    // ===== ADDITIONAL COMMANDS FROM README =====
 
+    // Get Model Recommendations Command
     let getModelRecommendationsCommand = vscode.commands.registerCommand('cost-katana.get-model-recommendations', async () => {
         const taskType = await vscode.window.showQuickPick([
             'Simple code generation',
@@ -380,7 +506,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    // ===== INTELLIGENCE COMMANDS =====
+    // Get Personalized Tips Command
     let getPersonalizedTipsCommand = vscode.commands.registerCommand('cost-katana.get-personalized-tips', async () => {
         try {
             const result = await api.getPersonalizedTips();
@@ -410,372 +536,44 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    let scoreResponseQualityCommand = vscode.commands.registerCommand('cost-katana.score-response-quality', async () => {
-        const rating = await vscode.window.showQuickPick([
-            '1 - Poor',
-            '2 - Fair',
-            '3 - Good',
-            '4 - Very Good',
-            '5 - Excellent'
-        ], {
-            placeHolder: 'Rate the response quality'
-        });
-
-        if (!rating) return;
-
-        const isAcceptable = await vscode.window.showQuickPick([
-            'Yes - Response meets requirements',
-            'No - Response needs improvement'
-        ], {
-            placeHolder: 'Is the response acceptable?'
-        });
-
-        if (!isAcceptable) return;
-
-        try {
-            const result = await api.scoreResponseQuality({
-                feedback: {
-                    rating: parseInt(rating.split(' ')[0]),
-                    isAcceptable: isAcceptable.startsWith('Yes'),
-                    comment: 'Rated via Cursor extension'
-                }
-            });
-
-            if (result.success && result.data) {
-                vscode.window.showInformationMessage(
-                    `Quality Score: ${result.data.qualityScore}/100\n` +
-                    `Cost Savings: $${result.data.costSavings.amount.toFixed(4)} (${result.data.costSavings.percentage}%)\n` +
-                    `Optimization Types: ${result.data.optimizationType.join(', ')}`
-                );
-            } else {
-                vscode.window.showErrorMessage(`Failed to score quality: ${result.error}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    });
-
-    // ===== MONITORING COMMANDS =====
-    let triggerMonitoringCommand = vscode.commands.registerCommand('cost-katana.trigger-monitoring', async () => {
-        try {
-            const result = await api.triggerUserMonitoring();
-            
-            if (result.success && result.data) {
-                const recommendations = result.data.recommendations;
-                if (recommendations.length > 0) {
-                    const selected = await vscode.window.showQuickPick(
-                        recommendations.map(rec => `${rec.title} - ${rec.priority} priority`),
-                        {
-                            placeHolder: 'Select a recommendation to view details'
-                        }
-                    );
-
-                    if (selected) {
-                        const rec = recommendations.find(r => `${r.title} - ${r.priority} priority` === selected);
-                        if (rec) {
-                            vscode.window.showInformationMessage(
-                                `${rec.title}\n\n${rec.description}\n\nPriority: ${rec.priority}`
-                            );
-                        }
-                    }
-                } else {
-                    vscode.window.showInformationMessage('No recommendations at this time. Your usage looks good!');
-                }
-            } else {
-                vscode.window.showErrorMessage(`Failed to trigger monitoring: ${result.error}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    });
-
-    let getUserStatusCommand = vscode.commands.registerCommand('cost-katana.get-user-status', async () => {
-        try {
-            const result = await api.getUserUsageStatus();
-            
-            if (result.success && result.data) {
-                const status = result.data;
-                const alerts = status.alerts.length > 0 ? 
-                    `\n\nAlerts:\n${status.alerts.map(a => `• ${a.message} (${a.severity})`).join('\n')}` : '';
-
-                vscode.window.showInformationMessage(
-                    `Status: ${status.status.toUpperCase()}\n` +
-                    `Current Spending: $${status.metrics.currentSpending.toFixed(2)}\n` +
-                    `Budget Used: ${status.metrics.budgetUsed.toFixed(1)}%\n` +
-                    `Avg Tokens/Request: ${status.metrics.avgTokensPerRequest}\n` +
-                    `Cost/Token: $${status.metrics.costPerToken.toFixed(6)}${alerts}`
-                );
-            } else {
-                vscode.window.showErrorMessage(`Failed to get status: ${result.error}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    });
-
-    // ===== EXPERIMENTATION COMMANDS =====
-    let runModelComparisonCommand = vscode.commands.registerCommand('cost-katana.run-model-comparison', async () => {
-        const prompt = await vscode.window.showInputBox({
-            prompt: 'Enter your prompt for model comparison',
-            placeHolder: 'e.g., Write a function to sort an array...'
-        });
-
-        if (!prompt) return;
-
-        const models = await vscode.window.showQuickPick([
-            'gpt-4o,claude-3.5-sonnet,gemini-2.5-pro',
-            'gpt-4o-mini,claude-3.5-haiku,deepseek-v3.1',
-            'claude-4-opus,gpt-4.1,o1'
-        ], {
-            placeHolder: 'Select models to compare (comma-separated)'
-        });
-
-        if (!models) return;
-
-        try {
-            const result = await api.runModelComparison({
-                models: models.split(','),
-                prompt: prompt,
-                expectedCompletionTokens: 200
-            });
-
-            if (result.success && result.data) {
-                const comparison = result.data.comparison;
-                const selected = await vscode.window.showQuickPick(
-                    comparison.map(c => `${c.model} - $${c.estimatedCost.toFixed(4)} - ${c.quality}`),
-                    {
-                        placeHolder: 'Select a model to see details'
-                    }
-                );
-
-                if (selected) {
-                    const comp = comparison.find(c => `${c.model} - $${c.estimatedCost.toFixed(4)} - ${c.quality}` === selected);
-                    if (comp) {
-                        vscode.window.showInformationMessage(
-                            `${comp.model} (${comp.provider})\n` +
-                            `Estimated Cost: $${comp.estimatedCost.toFixed(4)}\n` +
-                            `Estimated Tokens: ${comp.estimatedTokens}\n` +
-                            `Quality: ${comp.quality}\n` +
-                            `Tradeoffs: ${comp.tradeoffs.join(', ')}`
-                        );
-                    }
-                }
-            } else {
-                vscode.window.showErrorMessage(`Failed to compare models: ${result.error}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    });
-
-    // ===== PRICING COMMANDS =====
-    let comparePricingCommand = vscode.commands.registerCommand('cost-katana.compare-pricing', async () => {
-        const inputTokens = await vscode.window.showInputBox({
-            prompt: 'Enter number of input tokens',
-            placeHolder: '1000'
-        });
-
-        if (!inputTokens) return;
-
-        const outputTokens = await vscode.window.showInputBox({
-            prompt: 'Enter number of output tokens',
-            placeHolder: '500'
-        });
-
-        if (!outputTokens) return;
-
-        try {
-            const result = await api.comparePricing({
-                inputTokens: parseInt(inputTokens),
-                outputTokens: parseInt(outputTokens)
-            });
-
-            if (result.success && result.data) {
-                const comparison = result.data.comparison;
-                const selected = await vscode.window.showQuickPick(
-                    comparison.map(c => `${c.model} - $${c.totalCost.toFixed(6)}`),
-                    {
-                        placeHolder: 'Select a model to see cost breakdown'
-                    }
-                );
-
-                if (selected) {
-                    const comp = comparison.find(c => `${c.model} - $${c.totalCost.toFixed(6)}` === selected);
-                    if (comp) {
-                        vscode.window.showInformationMessage(
-                            `${comp.model} (${comp.provider})\n` +
-                            `Total Cost: $${comp.totalCost.toFixed(6)}\n` +
-                            `Input Cost: $${comp.inputCost.toFixed(6)}\n` +
-                            `Output Cost: $${comp.outputCost.toFixed(6)}\n` +
-                            `Breakdown: ${comp.costBreakdown}`
-                        );
-                    }
-                }
-            } else {
-                vscode.window.showErrorMessage(`Failed to compare pricing: ${result.error}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    });
-
-    // ===== FORECASTING COMMANDS =====
-    let generateForecastCommand = vscode.commands.registerCommand('cost-katana.generate-forecast', async () => {
-        const period = await vscode.window.showQuickPick([
-            'weekly',
-            'monthly',
-            'quarterly'
-        ], {
-            placeHolder: 'Select forecast period'
-        });
-
-        if (!period) return;
-
-        try {
-            const result = await api.generateCostForecast(period as 'weekly' | 'monthly' | 'quarterly');
-            
-            if (result.success && result.data) {
-                const forecast = result.data.forecast;
-                const insights = result.data.insights;
-
-                const forecastSummary = forecast.map(f => 
-                    `${f.period}: $${f.predictedCost.toFixed(2)} (${f.confidence}% confidence)`
-                ).join('\n');
-
-                const insightsText = insights.length > 0 ? `\n\nInsights:\n${insights.map(i => `• ${i}`).join('\n')}` : '';
-
-                vscode.window.showInformationMessage(
-                    `Cost Forecast (${period}):\n${forecastSummary}${insightsText}`
-                );
-            } else {
-                vscode.window.showErrorMessage(`Failed to generate forecast: ${result.error}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    });
-
-    // ===== AGENT COMMANDS =====
-    let queryAgentCommand = vscode.commands.registerCommand('cost-katana.query-agent', async () => {
-        const query = await vscode.window.showInputBox({
-            prompt: 'Ask the AI agent a question about cost optimization',
-            placeHolder: 'e.g., How can I reduce my AI costs by 50%?'
-        });
-
-        if (!query) return;
-
-        try {
-            const result = await api.queryAgent(query);
-            
-            if (result.success && result.data) {
-                const response = result.data.response;
-                const thinking = result.data.thinking;
-                const metadata = result.data.metadata;
-
-                let message = response;
-                if (thinking) {
-                    message += `\n\nThinking Process:\n${thinking.steps.map(s => `${s.step}. ${s.description}`).join('\n')}`;
-                }
-                message += `\n\nTokens Used: ${metadata.tokensUsed}`;
-                message += `\nExecution Time: ${metadata.executionTime}ms`;
-
-                vscode.window.showInformationMessage(message);
-            } else {
-                vscode.window.showErrorMessage(`Failed to query agent: ${result.error}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    });
-
-    // ===== OPTIMIZATION COMMANDS =====
-    let analyzeOpportunitiesCommand = vscode.commands.registerCommand('cost-katana.analyze-opportunities', async () => {
-        try {
-            const result = await api.analyzeOpportunities();
-            
-            if (result.success && result.data) {
-                const opportunities = result.data.opportunities;
-                const selected = await vscode.window.showQuickPick(
-                    opportunities.map(opp => `${opp.type} - $${opp.potentialSavings.toFixed(2)} savings`),
-                    {
-                        placeHolder: 'Select an opportunity to view details'
-                    }
-                );
-
-                if (selected) {
-                    const opp = opportunities.find(o => `${o.type} - $${o.potentialSavings.toFixed(2)} savings` === selected);
-                    if (opp) {
-                        vscode.window.showInformationMessage(
-                            `${opp.type}\n\n${opp.description}\n\n` +
-                            `Potential Savings: $${opp.potentialSavings.toFixed(2)}\n` +
-                            `Difficulty: ${opp.difficulty}\n\n` +
-                            `Implementation:\n${opp.implementation}`
-                        );
-                    }
-                }
-            } else {
-                vscode.window.showErrorMessage(`Failed to analyze opportunities: ${result.error}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    });
-
-    // ===== PROMPT TEMPLATE COMMANDS =====
-    let getPromptTemplatesCommand = vscode.commands.registerCommand('cost-katana.get-prompt-templates', async () => {
-        try {
-            const result = await api.getPromptTemplates();
-            
-            if (result.success && result.data) {
-                const templates = result.data.templates;
-                const selected = await vscode.window.showQuickPick(
-                    templates.map(t => `${t.name} (${t.category}) - ${t.usage.count} uses`),
-                    {
-                        placeHolder: 'Select a template to view details'
-                    }
-                );
-
-                if (selected) {
-                    const template = templates.find(t => `${t.name} (${t.category}) - ${t.usage.count} uses` === selected);
-                    if (template) {
-                        vscode.window.showInformationMessage(
-                            `${template.name}\n\n${template.content}\n\n` +
-                            `Category: ${template.category}\n` +
-                            `Usage: ${template.usage.count} times\n` +
-                            `Tokens Saved: ${template.usage.totalTokensSaved}\n` +
-                            `Cost Saved: $${template.usage.totalCostSaved.toFixed(4)}`
-                        );
-                    }
-                }
-            } else {
-                vscode.window.showErrorMessage(`Failed to get templates: ${result.error}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+    // Toggle Automatic Tracking Command
+    let toggleAutomaticTrackingCommand = vscode.commands.registerCommand('cost-katana.toggle-automatic-tracking', async () => {
+        automaticTrackingEnabled = !automaticTrackingEnabled;
+        const status = automaticTrackingEnabled ? 'enabled' : 'disabled';
+        vscode.window.showInformationMessage(`Automatic usage tracking ${status}`);
+        
+        // Update configuration
+        await vscode.workspace.getConfiguration('costKatana').update('automaticTracking', automaticTrackingEnabled, true);
     });
 
     // Register all commands
     context.subscriptions.push(
-        connectCommand,
+        connectAccountCommand,
         trackUsageCommand,
         optimizePromptCommand,
+        showAnalyticsCommand,
         setupWorkspaceCommand,
         getSuggestionsCommand,
         analyzeCodeCommand,
-        showAnalyticsCommand,
         getModelRecommendationsCommand,
         getPersonalizedTipsCommand,
-        scoreResponseQualityCommand,
-        triggerMonitoringCommand,
-        getUserStatusCommand,
-        runModelComparisonCommand,
-        comparePricingCommand,
-        generateForecastCommand,
-        queryAgentCommand,
-        analyzeOpportunitiesCommand,
-        getPromptTemplatesCommand
+        toggleAutomaticTrackingCommand,
+        cursorAIListener,
+        documentChangeListener
     );
+
+    // Start real-time tracking
+    api.startRealTimeTracking();
+
+    // Show welcome message
+    vscode.window.showInformationMessage(
+        '🚀 Cost Katana AI Optimizer activated! Use "Cost Katana: Connect Account" to get started.',
+        'Connect Account'
+    ).then(selection => {
+        if (selection === 'Connect Account') {
+            vscode.commands.executeCommand('cost-katana.connect-account');
+        }
+    });
 }
 
 function getModelRecommendations(taskType: string, budget: string): Array<{model: string, reason: string, estimatedCost: number}> {
