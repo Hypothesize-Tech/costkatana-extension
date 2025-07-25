@@ -47,57 +47,9 @@ interface SuggestionsData {
     file_path: string;
 }
 
-// Enhanced interfaces for additional APIs
-interface IntelligenceData {
-    usageId?: string;
-    optimizationId?: string;
-    feedback?: {
-        rating: number;
-        isAcceptable: boolean;
-        comment?: string;
-    };
-}
-
-interface MonitoringData {
-    userId: string;
-    threshold?: number;
-    period?: string;
-}
-
-interface ExperimentationData {
-    models: string[];
-    prompt: string;
-    expectedCompletionTokens?: number;
-}
-
-interface PricingData {
-    provider?: string;
-    model?: string;
-    inputTokens?: number;
-    outputTokens?: number;
-}
-
 interface ProjectData {
     name: string;
     description?: string;
-    budget_amount?: number;
-    budget_period?: string;
-    settings?: {
-        enablePromptLibrary?: boolean;
-        enableCostAllocation?: boolean;
-    };
-}
-
-interface PromptTemplateData {
-    name: string;
-    content: string;
-    category?: string;
-    variables?: Array<{
-        name: string;
-        description?: string;
-        defaultValue?: string;
-        required: boolean;
-    }>;
 }
 
 export class CostKatanaAPI {
@@ -128,11 +80,6 @@ export class CostKatanaAPI {
                 'Content-Type': 'application/json',
             };
 
-            // Add authentication
-            if (this.apiKey) {
-                headers['Authorization'] = `Bearer ${this.apiKey}`;
-            }
-
             const response = await axios({
                 method: method.toLowerCase(),
                 url,
@@ -160,7 +107,7 @@ export class CostKatanaAPI {
         }
     }
 
-    // ===== CURSOR-SPECIFIC APIs =====
+    // ===== CURSOR-SPECIFIC APIs (MATCHING BACKEND) =====
     async generateMagicLink(email: string): Promise<APIResponse<{ magic_link: string }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'generate_magic_link',
@@ -173,13 +120,11 @@ export class CostKatanaAPI {
     }
 
     async trackUsage(usageData: UsageData): Promise<APIResponse<{
-        cost: number;
+        cost: string;
         tokens: number;
         usage_id: string;
         smart_tip: string;
-        request_type: string;
-        language: string;
-        estimated_monthly_cost: number;
+        suggestions: string[];
         message: string;
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
@@ -208,11 +153,13 @@ export class CostKatanaAPI {
     }
 
     async optimizePrompt(optimizationData: OptimizationData): Promise<APIResponse<{
+        original_prompt: string;
         optimized_prompt: string;
-        token_reduction: string;
-        tokens_saved: number;
-        cost_saved: number;
-        techniques: string[];
+        token_reduction: number;
+        original_tokens: number;
+        optimized_tokens: number;
+        cost_savings: string;
+        quality_preserved: boolean;
         suggestions: string[];
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
@@ -239,6 +186,12 @@ export class CostKatanaAPI {
         cursor_specific: {
             total_requests: number;
             average_tokens_per_request: number;
+            recent_activity: Array<{
+                model: string;
+                tokens: number;
+                cost: string;
+                timestamp: string;
+            }>;
         };
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
@@ -251,7 +204,7 @@ export class CostKatanaAPI {
     async setupWorkspace(workspaceData: WorkspaceData): Promise<APIResponse<{
         project_id: string;
         project_name: string;
-        workspace_name: string;
+        message: string;
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'workspace_setup',
@@ -263,12 +216,15 @@ export class CostKatanaAPI {
 
     async getSuggestions(suggestionsData: SuggestionsData): Promise<APIResponse<{
         suggestions: Array<{
-            type: string;
             title: string;
             description: string;
-            impact: string;
-            potential_savings: string;
+            priority: string;
+            action: string;
         }>;
+        context: {
+            language: string;
+            file_path: string;
+        };
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'get_suggestions',
@@ -289,13 +245,9 @@ export class CostKatanaAPI {
             functions: number;
             classes: number;
             optimizationPotential: string;
-            recommendations: Array<{
-                type: string;
-                title: string;
-                description: string;
-                priority: string;
-            }>;
+            recommendations: string[];
         };
+        recommendations: string[];
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'analyze_code',
@@ -314,12 +266,9 @@ export class CostKatanaAPI {
             id: string;
             name: string;
             description: string;
-            budget: string;
-            current_spending: string;
-            budget_used: string;
-            status: string;
+            created_at: string;
+            updated_at: string;
         }>;
-        total_projects: number;
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'get_projects',
@@ -331,535 +280,13 @@ export class CostKatanaAPI {
     async createProject(projectData: ProjectData): Promise<APIResponse<{
         project_id: string;
         project_name: string;
-        budget: string;
+        message: string;
     }>> {
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'create_project',
             user_id: this.userId,
             api_key: this.apiKey,
-            workspace: {
-                name: projectData.name,
-                description: projectData.description,
-                budget_amount: projectData.budget_amount,
-                budget_period: projectData.budget_period
-            }
-        });
-    }
-
-    // ===== INTELLIGENCE APIs =====
-    async getPersonalizedTips(): Promise<APIResponse<{
-        tips: Array<{
-            tipId: string;
-            title: string;
-            message: string;
-            type: string;
-            priority: string;
-            potentialSavings?: {
-                percentage?: number;
-                amount?: number;
-                description: string;
-            };
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_personalized_tips',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    async getTipsForUsage(usageId: string): Promise<APIResponse<{
-        tips: Array<{
-            tipId: string;
-            title: string;
-            message: string;
-            type: string;
-            priority: string;
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', { 
-            action: 'get_tips_for_usage',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            usage_id: usageId 
-        });
-    }
-
-    async trackTipInteraction(tipId: string, interactionAction: 'view' | 'apply' | 'dismiss'): Promise<APIResponse> {
-        return this.makeRequest('/cursor/action', 'POST', { 
-            action: 'track_tip_interaction',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            tipId, 
-            interaction_action: interactionAction 
-        });
-    }
-
-    async scoreResponseQuality(intelligenceData: IntelligenceData): Promise<APIResponse<{
-        qualityScore: number;
-        scoringMethod: string;
-        costSavings: {
-            amount: number;
-            percentage: number;
-        };
-        optimizationType: string[];
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'score_response_quality',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            ...intelligenceData
-        });
-    }
-
-    async compareQuality(originalScore: number, optimizedScore: number): Promise<APIResponse<{
-        improvement: number;
-        recommendation: string;
-        costImpact: number;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'compare_quality',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            originalScore,
-            optimizedScore
-        });
-    }
-
-    // ===== MONITORING APIs =====
-    async triggerUserMonitoring(): Promise<APIResponse<{
-        status: string;
-        recommendations: Array<{
-            type: string;
-            title: string;
-            description: string;
-            priority: string;
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'trigger_monitoring',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    async getUserUsageStatus(): Promise<APIResponse<{
-        status: 'normal' | 'warning' | 'critical';
-        metrics: {
-            currentSpending: number;
-            budgetUsed: number;
-            avgTokensPerRequest: number;
-            costPerToken: number;
-        };
-        alerts: Array<{
-            type: string;
-            message: string;
-            severity: string;
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_user_status',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    async getSmartRecommendations(): Promise<APIResponse<{
-        recommendations: Array<{
-            type: string;
-            title: string;
-            description: string;
-            impact: string;
-            estimatedSavings: number;
-            implementation: string;
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_smart_recommendations',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    // ===== EXPERIMENTATION APIs =====
-    async getAvailableModels(): Promise<APIResponse<{
-        models: Array<{
-            id: string;
-            name: string;
-            provider: string;
-            pricing: {
-                input: number;
-                output: number;
-                unit: string;
-            };
-            capabilities: string[];
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_available_models',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    async runModelComparison(experimentationData: ExperimentationData): Promise<APIResponse<{
-        comparison: Array<{
-            model: string;
-            provider: string;
-            estimatedCost: number;
-            estimatedTokens: number;
-            quality: string;
-            tradeoffs: string[];
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'run_model_comparison',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            ...experimentationData
-        });
-    }
-
-    async estimateExperimentCost(experimentationData: ExperimentationData): Promise<APIResponse<{
-        totalCost: number;
-        breakdown: Array<{
-            model: string;
-            cost: number;
-            tokens: number;
-        }>;
-        recommendations: string[];
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'estimate_experiment_cost',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            ...experimentationData
-        });
-    }
-
-    // ===== PRICING APIs =====
-    async getPricingUpdates(): Promise<APIResponse<{
-        lastUpdated: string;
-        providers: string[];
-        changes: Array<{
-            provider: string;
-            model: string;
-            change: string;
-            impact: string;
-        }>;
-    }>> {
-        return this.makeRequest('/pricing/updates');
-    }
-
-    async getAllPricing(): Promise<APIResponse<{
-        providers: Record<string, Array<{
-            model: string;
-            inputPrice: number;
-            outputPrice: number;
-            contextWindow: number;
-        }>>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_all_pricing',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    async comparePricing(pricingData: PricingData): Promise<APIResponse<{
-        comparison: Array<{
-            model: string;
-            provider: string;
-            totalCost: number;
-            inputCost: number;
-            outputCost: number;
-            costBreakdown: string;
-        }>;
-        cheapest: string;
-        recommendations: string[];
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'compare_pricing',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            ...pricingData
-        });
-    }
-
-    // ===== OPTIMIZATION APIs =====
-    async getOptimizations(): Promise<APIResponse<{
-        optimizations: Array<{
-            id: string;
-            originalPrompt: string;
-            optimizedPrompt: string;
-            tokensSaved: number;
-            costSaved: number;
-            improvementPercentage: number;
-            applied: boolean;
-            createdAt: string;
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_optimizations',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    async applyOptimization(optimizationId: string): Promise<APIResponse<{
-        success: boolean;
-        appliedPrompt: string;
-        message: string;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', { 
-            action: 'apply_optimization',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            optimizationId 
-        });
-    }
-
-    async analyzeOpportunities(): Promise<APIResponse<{
-        opportunities: Array<{
-            type: string;
-            description: string;
-            potentialSavings: number;
-            difficulty: string;
-            implementation: string;
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'analyze_opportunities',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    // ===== PROMPT TEMPLATE APIs =====
-    async getPromptTemplates(): Promise<APIResponse<{
-        templates: Array<{
-            id: string;
-            name: string;
-            content: string;
-            category: string;
-            usage: {
-                count: number;
-                totalTokensSaved: number;
-                totalCostSaved: number;
-            };
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_prompt_templates',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    async createPromptTemplate(templateData: PromptTemplateData): Promise<APIResponse<{
-        templateId: string;
-        message: string;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'create_prompt_template',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            ...templateData
-        });
-    }
-
-    async useTemplate(templateId: string, variables: Record<string, string>): Promise<APIResponse<{
-        prompt: string;
-        estimatedTokens: number;
-        estimatedCost: number;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', { 
-            action: 'use_template',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            templateId, 
-            variables 
-        });
-    }
-
-    // ===== FORECASTING APIs =====
-    async generateCostForecast(period: 'weekly' | 'monthly' | 'quarterly' = 'monthly'): Promise<APIResponse<{
-        forecast: Array<{
-            period: string;
-            predictedCost: number;
-            confidence: number;
-            factors: string[];
-        }>;
-        insights: string[];
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', { 
-            action: 'generate_cost_forecast',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            period 
-        });
-    }
-
-    async getPredictiveAlerts(): Promise<APIResponse<{
-        alerts: Array<{
-            type: string;
-            message: string;
-            probability: number;
-            impact: string;
-            recommendations: string[];
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_predictive_alerts',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    // ===== PERFORMANCE COST ANALYSIS APIs =====
-    async analyzeCostPerformanceCorrelation(): Promise<APIResponse<{
-        correlation: number;
-        insights: string[];
-        recommendations: Array<{
-            type: string;
-            description: string;
-            impact: string;
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'analyze_cost_performance_correlation',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    async getEfficiencyScore(): Promise<APIResponse<{
-        score: number;
-        breakdown: {
-            costEfficiency: number;
-            tokenEfficiency: number;
-            qualityEfficiency: number;
-        };
-        recommendations: string[];
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_efficiency_score',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    // ===== AGENT APIs =====
-    async queryAgent(query: string, context?: any): Promise<APIResponse<{
-        response: string;
-        thinking?: {
-            title: string;
-            steps: Array<{
-                step: number;
-                description: string;
-                reasoning: string;
-            }>;
-        };
-        metadata: {
-            tokensUsed: number;
-            sources: string[];
-            executionTime: number;
-        };
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', { 
-            action: 'query_agent',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            query, 
-            context 
-        });
-    }
-
-    async getAgentStatus(): Promise<APIResponse<{
-        initialized: boolean;
-        model: string;
-        agentType: string;
-        toolsCount: number;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_agent_status',
-            user_id: this.userId,
-            api_key: this.apiKey
-        });
-    }
-
-    // ===== CHAT APIs =====
-    async sendChatMessage(message: string, modelId: string, conversationId?: string): Promise<APIResponse<{
-        messageId: string;
-        conversationId: string;
-        response: string;
-        cost: number;
-        tokenCount: number;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', { 
-            action: 'send_chat_message',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            message, 
-            modelId, 
-            conversationId 
-        });
-    }
-
-    async getConversationHistory(conversationId: string): Promise<APIResponse<{
-        messages: Array<{
-            id: string;
-            role: string;
-            content: string;
-            timestamp: string;
-        }>;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
-            action: 'get_conversation_history',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            conversationId
-        });
-    }
-
-    // ===== ANALYTICS APIs =====
-    async getComparativeAnalytics(period1: { startDate: string; endDate: string }, period2: { startDate: string; endDate: string }): Promise<APIResponse<{
-        comparison: {
-            period1: {
-                totalCost: number;
-                totalTokens: number;
-                avgCostPerRequest: number;
-            };
-            period2: {
-                totalCost: number;
-                totalTokens: number;
-                avgCostPerRequest: number;
-            };
-            changes: {
-                costChange: number;
-                tokenChange: number;
-                efficiencyChange: number;
-            };
-        };
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', { 
-            action: 'get_comparative_analytics',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            period1, 
-            period2 
-        });
-    }
-
-    async exportAnalytics(format: 'csv' | 'json' = 'csv'): Promise<APIResponse<{
-        downloadUrl: string;
-        expiresAt: string;
-    }>> {
-        return this.makeRequest('/cursor/action', 'POST', { 
-            action: 'export_analytics',
-            user_id: this.userId,
-            api_key: this.apiKey,
-            format 
+            name: projectData.name
         });
     }
 
@@ -884,20 +311,19 @@ export class CostKatanaAPI {
 
     // ===== REAL-TIME TRACKING =====
     async startRealTimeTracking(): Promise<void> {
-        // This would implement SSE for real-time updates
-        // For now, we'll use polling
+        // Simple polling for now
         setInterval(async () => {
             try {
-                const status = await this.getUserUsageStatus();
-                if (status.success && status.data) {
-                    // Emit status update event
+                const analytics = await this.getAnalytics();
+                if (analytics.success && analytics.data) {
+                    // Show status update
                     vscode.window.showInformationMessage(
-                        `Status: ${status.data.status.toUpperCase()} - Budget: ${status.data.metrics.budgetUsed.toFixed(1)}%`
+                        `📊 Cost Katana Status: ${analytics.data.summary.budget_used} budget used`
                     );
                 }
             } catch (error) {
                 // Silent fail for background polling
             }
-        }, 30000); // Poll every 30 seconds
+        }, 60000); // Poll every minute
     }
 } 

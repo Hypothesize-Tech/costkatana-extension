@@ -37,7 +37,7 @@ export function activate(context: vscode.ExtensionContext) {
             if (result.success && result.data) {
                 // Show subtle notification for automatic tracking
                 vscode.window.showInformationMessage(
-                    `🤖 Tracked: $${result.data.cost.toFixed(6)} (${result.data.tokens} tokens)`,
+                    `🤖 Tracked: $${result.data.cost} (${result.data.tokens} tokens)`,
                     'View Details'
                 ).then(selection => {
                     if (selection === 'View Details') {
@@ -207,7 +207,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             if (result.success && result.data) {
                 vscode.window.showInformationMessage(
-                    `Usage tracked! Cost: $${result.data.cost.toFixed(6)}, Tokens: ${result.data.tokens}`
+                    `Usage tracked! Cost: $${result.data.cost}, Tokens: ${result.data.tokens}`
                 );
                 
                 // Show smart tip if available
@@ -451,7 +451,7 @@ export function activate(context: vscode.ExtensionContext) {
 🎯 **Optimization Potential:** ${analysis.optimizationPotential}
 
 💡 **Recommendations:**
-${analysis.recommendations.map((rec, i) => `${i + 1}. ${rec.title} (${rec.priority})`).join('\n')}
+${analysis.recommendations.map((rec, i) => `${i + 1}. ${rec}`).join('\n')}
                 `.trim()
                 );
             } else {
@@ -506,36 +506,6 @@ ${analysis.recommendations.map((rec, i) => `${i + 1}. ${rec.title} (${rec.priori
         }
     });
 
-    // Get Personalized Tips Command
-    let getPersonalizedTipsCommand = vscode.commands.registerCommand('cost-katana.get-personalized-tips', async () => {
-        try {
-            const result = await api.getPersonalizedTips();
-            
-            if (result.success && result.data) {
-                const tips = result.data.tips;
-                const selected = await vscode.window.showQuickPick(
-                    tips.map(tip => `${tip.title} - ${tip.priority} priority`),
-                    {
-                        placeHolder: 'Select a tip to view details'
-                    }
-                );
-
-                if (selected) {
-                    const tip = tips.find(t => `${t.title} - ${t.priority} priority` === selected);
-                    if (tip) {
-                        vscode.window.showInformationMessage(
-                            `${tip.title}\n\n${tip.message}\n\nPotential Savings: ${tip.potentialSavings?.description || 'Not specified'}`
-                        );
-                    }
-                }
-            } else {
-                vscode.window.showErrorMessage(`Failed to get tips: ${result.error}`);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    });
-
     // Toggle Automatic Tracking Command
     let toggleAutomaticTrackingCommand = vscode.commands.registerCommand('cost-katana.toggle-automatic-tracking', async () => {
         automaticTrackingEnabled = !automaticTrackingEnabled;
@@ -556,7 +526,6 @@ ${analysis.recommendations.map((rec, i) => `${i + 1}. ${rec.title} (${rec.priori
         getSuggestionsCommand,
         analyzeCodeCommand,
         getModelRecommendationsCommand,
-        getPersonalizedTipsCommand,
         toggleAutomaticTrackingCommand,
         cursorAIListener,
         documentChangeListener

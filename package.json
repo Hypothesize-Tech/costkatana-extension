@@ -2,7 +2,7 @@
   "name": "cost-katana-ai-optimizer",
   "displayName": "Cost Katana AI Optimizer",
   "description": "AI-powered cost optimization for Cursor/VS Code - Track, analyze, and optimize AI usage across 30+ models (GPT-4, Claude, Gemini, etc.)",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "publisher": "abdulsagheer",
   "repository": {
     "type": "git",
@@ -39,27 +39,15 @@
     "theme": "dark"
   },
   "activationEvents": [
-    "onCommand:cost-katana.generate-magic-link",
-    "onCommand:cost-katana.validate-connection",
+    "onCommand:cost-katana.connect-account",
     "onCommand:cost-katana.track-usage",
     "onCommand:cost-katana.optimize-prompt",
-    "onCommand:cost-katana.get-analytics",
+    "onCommand:cost-katana.show-analytics",
     "onCommand:cost-katana.setup-workspace",
     "onCommand:cost-katana.get-suggestions",
     "onCommand:cost-katana.analyze-code",
-    "onCommand:cost-katana.get-projects",
-    "onCommand:cost-katana.create-project",
     "onCommand:cost-katana.get-model-recommendations",
-    "onCommand:cost-katana.get-personalized-tips",
-    "onCommand:cost-katana.score-response-quality",
-    "onCommand:cost-katana.trigger-monitoring",
-    "onCommand:cost-katana.get-user-status",
-    "onCommand:cost-katana.run-model-comparison",
-    "onCommand:cost-katana.compare-pricing",
-    "onCommand:cost-katana.generate-forecast",
-    "onCommand:cost-katana.query-agent",
-    "onCommand:cost-katana.analyze-opportunities",
-    "onCommand:cost-katana.get-prompt-templates"
+    "onCommand:cost-katana.toggle-automatic-tracking"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -132,113 +120,8 @@
         "category": "Cost Katana"
       },
       {
-        "command": "cost-katana.get-personalized-tips",
-        "title": "Cost Katana: Get Personalized Tips",
-        "category": "Cost Katana"
-      },
-      {
         "command": "cost-katana.toggle-automatic-tracking",
         "title": "Cost Katana: Toggle Automatic Tracking",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.validate-connection",
-        "title": "Cost Katana: Validate Connection",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.track-usage",
-        "title": "Cost Katana: Track AI Usage",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.optimize-prompt",
-        "title": "Cost Katana: Optimize Prompt",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.get-analytics",
-        "title": "Cost Katana: Get Analytics",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.setup-workspace",
-        "title": "Cost Katana: Setup Workspace",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.get-suggestions",
-        "title": "Cost Katana: Get Suggestions",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.analyze-code",
-        "title": "Cost Katana: Analyze Code",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.get-projects",
-        "title": "Cost Katana: Get Projects",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.create-project",
-        "title": "Cost Katana: Create Project",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.get-model-recommendations",
-        "title": "Cost Katana: Get Model Recommendations",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.get-personalized-tips",
-        "title": "Cost Katana: Get Personalized Tips",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.score-response-quality",
-        "title": "Cost Katana: Score Response Quality",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.trigger-monitoring",
-        "title": "Cost Katana: Trigger Monitoring",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.get-user-status",
-        "title": "Cost Katana: Get User Status",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.run-model-comparison",
-        "title": "Cost Katana: Run Model Comparison",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.compare-pricing",
-        "title": "Cost Katana: Compare Pricing",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.generate-forecast",
-        "title": "Cost Katana: Generate Cost Forecast",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.query-agent",
-        "title": "Cost Katana: Query AI Agent",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.analyze-opportunities",
-        "title": "Cost Katana: Analyze Opportunities",
-        "category": "Cost Katana"
-      },
-      {
-        "command": "cost-katana.get-prompt-templates",
-        "title": "Cost Katana: Get Prompt Templates",
         "category": "Cost Katana"
       }
     ]
