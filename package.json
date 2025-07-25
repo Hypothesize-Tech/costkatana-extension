@@ -2,7 +2,7 @@
   "name": "cost-katana-ai-optimizer",
   "displayName": "Cost Katana AI Optimizer",
   "description": "AI-powered cost optimization for Cursor/VS Code - Track, analyze, and optimize AI usage across 30+ models (GPT-4, Claude, Gemini, etc.)",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "publisher": "abdulsagheer",
   "preview": false,
   "qna": true,
