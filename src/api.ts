@@ -137,14 +137,42 @@ export class CostKatanaAPI {
 
     // ===== CURSOR-SPECIFIC APIs (MATCHING BACKEND) =====
     async generateMagicLink(email: string): Promise<APIResponse<{ magic_link: string }>> {
-        return this.makeRequest('/cursor/action', 'POST', {
+        // Try the cursor-specific endpoint first
+        const cursorResponse = await this.makeRequest<{ magic_link: string }>('/cursor/action', 'POST', {
             action: 'generate_magic_link',
+            email
+        });
+        
+        if (cursorResponse.success) {
+            return cursorResponse;
+        }
+        
+        // Fallback to direct magic link endpoint
+        console.log('Cursor endpoint failed, trying direct magic link endpoint');
+        return this.makeRequest<{ magic_link: string }>('/auth/magic-link', 'POST', {
             email
         });
     }
 
     async validateConnection(): Promise<APIResponse> {
-        return this.makeRequest('/cursor/health');
+        // Try multiple health check endpoints
+        const endpoints = ['/cursor/health', '/health', '/api/health'];
+        
+        for (const endpoint of endpoints) {
+            try {
+                const response = await this.makeRequest(endpoint);
+                if (response.success) {
+                    return response;
+                }
+            } catch (error) {
+                console.log(`Health check failed for ${endpoint}:`, error);
+            }
+        }
+        
+        return {
+            success: false,
+            error: 'All health check endpoints failed'
+        };
     }
 
     async trackUsage(usageData: UsageData): Promise<APIResponse<{
@@ -335,6 +363,19 @@ export class CostKatanaAPI {
         this.baseUrl = baseUrl;
         // Update VS Code settings
         vscode.workspace.getConfiguration('costKatana').update('backendUrl', baseUrl, true);
+    }
+
+    // Test magic link URL
+    async testMagicLinkUrl(url: string): Promise<boolean> {
+        try {
+            console.log('🔗 Testing magic link URL:', url);
+            const response = await fetch(url, { method: 'HEAD' });
+            console.log('🔗 Magic link test response:', response.status, response.statusText);
+            return response.ok;
+        } catch (error) {
+            console.error('🔗 Magic link test failed:', error);
+            return false;
+        }
     }
 
     // ===== REAL-TIME TRACKING =====

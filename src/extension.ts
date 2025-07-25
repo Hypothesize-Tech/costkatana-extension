@@ -128,9 +128,19 @@ export function activate(context: vscode.ExtensionContext) {
                     console.log('📡 Magic link response:', response);
                     
                     if (response.success && response.data) {
+                        // Test the magic link URL before opening
+                        const magicLinkUrl = response.data.magic_link;
+                        console.log('🔗 Generated magic link:', magicLinkUrl);
+                        
+                        const isUrlValid = await api.testMagicLinkUrl(magicLinkUrl);
+                        if (!isUrlValid) {
+                            console.warn('⚠️ Magic link URL test failed, but proceeding anyway');
+                            vscode.window.showWarningMessage('Magic link generated, but URL validation failed. The link might not work properly.');
+                        }
+                        
                         vscode.window.showInformationMessage('Magic link generated! Opening in browser...');
                         console.log('🌐 Opening magic link in browser');
-                        vscode.env.openExternal(vscode.Uri.parse(response.data.magic_link));
+                        vscode.env.openExternal(vscode.Uri.parse(magicLinkUrl));
                         
                         // Store email for later use
                         await vscode.workspace.getConfiguration('costKatana').update('userEmail', email, true);
