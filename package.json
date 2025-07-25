@@ -74,7 +74,8 @@
     "onCommand:cost-katana.get-suggestions",
     "onCommand:cost-katana.analyze-code",
     "onCommand:cost-katana.get-model-recommendations",
-    "onCommand:cost-katana.toggle-automatic-tracking"
+    "onCommand:cost-katana.toggle-automatic-tracking",
+    "onCommand:cost-katana.configure"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -108,53 +109,43 @@
     "commands": [
       {
         "command": "cost-katana.connect-account",
-        "title": "Cost Katana: Connect Account",
-        "category": "Cost Katana"
+        "title": "Cost Katana: Connect Account"
       },
       {
         "command": "cost-katana.track-usage",
-        "title": "Cost Katana: Track AI Usage",
-        "category": "Cost Katana"
+        "title": "Cost Katana: Track AI Usage"
       },
       {
         "command": "cost-katana.optimize-prompt",
-        "title": "Cost Katana: Optimize Prompt",
-        "category": "Cost Katana"
+        "title": "Cost Katana: Optimize Prompt"
       },
       {
         "command": "cost-katana.show-analytics",
-        "title": "Cost Katana: Show Analytics",
-        "category": "Cost Katana"
+        "title": "Cost Katana: Show Analytics"
       },
       {
         "command": "cost-katana.setup-workspace",
-        "title": "Cost Katana: Setup Workspace",
-        "category": "Cost Katana"
+        "title": "Cost Katana: Setup Workspace"
       },
       {
         "command": "cost-katana.get-suggestions",
-        "title": "Cost Katana: Get Suggestions",
-        "category": "Cost Katana"
+        "title": "Cost Katana: Get Suggestions"
       },
       {
         "command": "cost-katana.analyze-code",
-        "title": "Cost Katana: Analyze Code",
-        "category": "Cost Katana"
+        "title": "Cost Katana: Analyze Code"
       },
       {
         "command": "cost-katana.get-model-recommendations",
-        "title": "Cost Katana: Get Model Recommendations",
-        "category": "Cost Katana"
+        "title": "Cost Katana: Get Model Recommendations"
       },
       {
         "command": "cost-katana.toggle-automatic-tracking",
-        "title": "Cost Katana: Toggle Automatic Tracking",
-        "category": "Cost Katana"
+        "title": "Cost Katana: Toggle Automatic Tracking"
       },
       {
         "command": "cost-katana.configure",
-        "title": "Cost Katana: Configure Extension",
-        "category": "Cost Katana"
+        "title": "Cost Katana: Configure Extension"
       }
     ]
   },
