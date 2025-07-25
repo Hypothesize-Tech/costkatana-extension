@@ -4,15 +4,33 @@
   "description": "AI-powered cost optimization for Cursor/VS Code - Track, analyze, and optimize AI usage across 30+ models (GPT-4, Claude, Gemini, etc.)",
   "version": "1.0.8",
   "publisher": "abdulsagheer",
+  "preview": false,
+  "qna": true,
   "repository": {
     "type": "git",
     "url": "https://github.com/Hypothesize-Tech/ai-cost-optimizer-extension.git"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.80.0"
   },
   "categories": [
+    "Programming Languages",
+    "Machine Learning",
+    "Snippets",
+    "Visualization",
     "Other"
+  ],
+  "badges": [
+    {
+      "url": "https://img.shields.io/visual-studio-marketplace/v/abdulsagheer.cost-katana-ai-optimizer",
+      "href": "https://marketplace.visualstudio.com/items?itemName=abdulsagheer.cost-katana-ai-optimizer",
+      "description": "VS Marketplace Version"
+    },
+    {
+      "url": "https://img.shields.io/visual-studio-marketplace/d/abdulsagheer.cost-katana-ai-optimizer",
+      "href": "https://marketplace.visualstudio.com/items?itemName=abdulsagheer.cost-katana-ai-optimizer",
+      "description": "Downloads"
+    }
   ],
   "keywords": [
     "ai",
@@ -144,18 +162,19 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.6",
     "@types/node": "^18.19.8",
+    "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
     "@typescript-eslint/parser": "^6.19.1",
+    "@vscode/test-electron": "^2.3.9",
+    "@vscode/vsce": "^3.6.0",
+    "axios": "^1.6.5",
     "eslint": "^8.56.0",
     "glob": "^10.3.10",
     "mocha": "^10.2.0",
-    "typescript": "^5.3.3",
-    "@vscode/test-electron": "^2.3.9",
-    "axios": "^1.6.5"
+    "typescript": "^5.3.3"
   },
   "dependencies": {
     "axios": "^1.6.5"
