@@ -90,14 +90,53 @@ export function activate(context: vscode.ExtensionContext) {
             }
         });
 
-        // Monitor for Cursor AI commands
+        // Monitor for Cursor AI commands and auto mode
         const cursorAIListener = vscode.commands.registerCommand('cursor.ai', async () => {
-            // This will be called when Cursor AI is used
-            // We'll track it as an AI interaction
+            console.log('🤖 Cursor AI command detected');
             await trackAIInteraction(
                 'Cursor AI interaction',
                 'AI response generated',
                 'cursor-small'
+            );
+        });
+
+        // Monitor Cursor's auto mode
+        const cursorAutoModeListener = vscode.commands.registerCommand('cursor.autoComplete', async () => {
+            console.log('🤖 Cursor auto mode detected');
+            await trackAIInteraction(
+                'Cursor auto mode',
+                'Auto-completion generated',
+                'cursor-auto'
+            );
+        });
+
+        // Monitor Cursor's inline suggestions
+        const cursorInlineSuggestionsListener = vscode.commands.registerCommand('cursor.inlineSuggest', async () => {
+            console.log('🤖 Cursor inline suggestion detected');
+            await trackAIInteraction(
+                'Cursor inline suggestion',
+                'Inline suggestion generated',
+                'cursor-inline'
+            );
+        });
+
+        // Monitor Cursor's chat interactions
+        const cursorChatListener = vscode.commands.registerCommand('cursor.chat', async () => {
+            console.log('🤖 Cursor chat detected');
+            await trackAIInteraction(
+                'Cursor chat interaction',
+                'Chat response generated',
+                'cursor-chat'
+            );
+        });
+
+        // Monitor Cursor's explain code feature
+        const cursorExplainListener = vscode.commands.registerCommand('cursor.explain', async () => {
+            console.log('🤖 Cursor explain code detected');
+            await trackAIInteraction(
+                'Cursor explain code',
+                'Code explanation generated',
+                'cursor-explain'
             );
         });
 
@@ -837,7 +876,11 @@ ${analysis.recommendations.map((rec, i) => `${i + 1}. ${rec}`).join('\n')}
             testCommand,
             healthCheckCommand,
             cursorAIListener,
-            documentChangeListener
+            documentChangeListener,
+            cursorAutoModeListener,
+            cursorInlineSuggestionsListener,
+            cursorChatListener,
+            cursorExplainListener
         );
 
         // Start real-time tracking

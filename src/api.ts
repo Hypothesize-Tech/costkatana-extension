@@ -90,9 +90,10 @@ export class CostKatanaAPI {
                 headers['Authorization'] = `Bearer ${this.apiKey}`;
             }
 
-            console.log(`Making ${method} request to: ${url}`);
+            console.log(`🌐 Making ${method} request to: ${url}`);
+            console.log('🔑 Headers:', { ...headers, Authorization: headers.Authorization ? '***' : undefined });
             if (data) {
-                console.log('Request data:', JSON.stringify(data, null, 2));
+                console.log('📦 Request data:', JSON.stringify(data, null, 2));
             }
 
             const requestOptions: RequestInit = {
@@ -101,13 +102,24 @@ export class CostKatanaAPI {
                 body: data ? JSON.stringify(data) : undefined,
             };
 
+            console.log('⏳ Sending request...');
             const response = await fetch(url, requestOptions);
+            console.log('✅ Response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                headers: Object.fromEntries(response.headers.entries())
+            });
+
             const result = await response.json() as APIResponse<T>;
-            
-            console.log('Response status:', response.status);
-            console.log('Response data:', JSON.stringify(result, null, 2));
+            console.log('📄 Response data:', JSON.stringify(result, null, 2));
 
             if (!response.ok) {
+                console.error('❌ Request failed:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: result.error,
+                    message: result.message
+                });
                 return {
                     success: false,
                     error: (result as any).error || `HTTP ${response.status}: ${response.statusText}`,
@@ -117,9 +129,14 @@ export class CostKatanaAPI {
 
             return result;
         } catch (error) {
-            console.error('API request failed:', error);
+            console.error('❌ API request failed:', error);
             
             if (error instanceof TypeError && error.message.includes('fetch')) {
+                console.error('🔍 Network error details:', {
+                    baseUrl: this.baseUrl,
+                    error: error.message,
+                    stack: error.stack
+                });
                 return {
                     success: false,
                     error: `Cannot connect to backend server. Please check if the backend URL is correct: ${this.baseUrl}`,
@@ -137,6 +154,8 @@ export class CostKatanaAPI {
 
     // ===== CURSOR-SPECIFIC APIs (MATCHING BACKEND) =====
     async generateMagicLink(email: string): Promise<APIResponse<{ magic_link: string }>> {
+        console.log('🔗 Generating magic link for email:', email);
+        
         // Try the cursor-specific endpoint first
         const cursorResponse = await this.makeRequest<{ magic_link: string }>('/cursor/action', 'POST', {
             action: 'generate_magic_link',
@@ -144,31 +163,38 @@ export class CostKatanaAPI {
         });
         
         if (cursorResponse.success) {
+            console.log('✅ Magic link generated successfully');
             return cursorResponse;
         }
         
         // Fallback to direct magic link endpoint
-        console.log('Cursor endpoint failed, trying direct magic link endpoint');
+        console.log('⚠️ Cursor endpoint failed, trying direct magic link endpoint');
         return this.makeRequest<{ magic_link: string }>('/auth/magic-link', 'POST', {
             email
         });
     }
 
     async validateConnection(): Promise<APIResponse> {
+        console.log('🔍 Validating API connection...');
+        
         // Try multiple health check endpoints
         const endpoints = ['/cursor/health', '/health', '/api/health'];
         
         for (const endpoint of endpoints) {
             try {
+                console.log(`🔄 Trying health check endpoint: ${endpoint}`);
                 const response = await this.makeRequest(endpoint);
                 if (response.success) {
+                    console.log('✅ Health check successful');
                     return response;
                 }
+                console.log(`⚠️ Health check failed for ${endpoint}:`, response);
             } catch (error) {
-                console.log(`Health check failed for ${endpoint}:`, error);
+                console.error(`❌ Health check error for ${endpoint}:`, error);
             }
         }
         
+        console.error('❌ All health check endpoints failed');
         return {
             success: false,
             error: 'All health check endpoints failed'
@@ -183,6 +209,13 @@ export class CostKatanaAPI {
         suggestions: string[];
         message: string;
     }>> {
+        console.log('📊 Tracking usage:', {
+            model: usageData.model,
+            promptLength: usageData.prompt.length,
+            responseLength: usageData.response.length,
+            context: usageData.codeContext
+        });
+
         return this.makeRequest('/cursor/action', 'POST', {
             action: 'track_usage',
             user_id: this.userId,
