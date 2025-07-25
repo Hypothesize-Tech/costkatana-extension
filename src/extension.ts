@@ -330,54 +330,99 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Optimize Prompt Command
         let optimizePromptCommand = vscode.commands.registerCommand('cost-katana.optimize-prompt', async () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                vscode.window.showErrorMessage('No active editor found');
-                return;
-            }
-
-            const selection = editor.selection;
-            const text = editor.document.getText(selection);
-
-            if (!text) {
-                vscode.window.showErrorMessage('Please select the prompt text to optimize');
-                return;
-            }
-
             try {
-                const result = await api.optimizePrompt({
-                    prompt: text,
-                    currentTokens: Math.ceil(text.length / 4),
-                    codeContext: {
-                        language: editor.document.languageId,
-                        file_path: editor.document.fileName
+                console.log('⚡ Optimize prompt command started');
+                const editor = vscode.window.activeTextEditor;
+                
+                // Get text either from selection or show input box
+                let text = '';
+                if (editor && !editor.selection.isEmpty) {
+                    text = editor.document.getText(editor.selection);
+                    console.log('📝 Got text from selection:', text.substring(0, 50) + '...');
+                } else {
+                    text = await vscode.window.showInputBox({
+                        prompt: 'Enter the prompt text to optimize',
+                        placeHolder: 'Your prompt text here...',
+                        validateInput: text => {
+                            if (text.length < 10) {
+                                return 'Please enter at least 10 characters';
+                            }
+                            return null;
+                        }
+                    }) || '';
+                    
+                    if (!text) {
+                        console.log('❌ No text provided');
+                        vscode.window.showInformationMessage('Please provide text to optimize');
+                        return;
                     }
-                });
+                }
 
-                if (result.success && result.data) {
-                    const action = await vscode.window.showInformationMessage(
-                        `Prompt optimized! Token reduction: ${result.data.token_reduction}`,
-                        'Replace in Editor',
-                        'Copy to Clipboard'
-                    );
-
-                    if (action === 'Replace in Editor') {
-                        await editor.edit(editBuilder => {
-                            if (!selection.isEmpty) {
-                                editBuilder.replace(editor.selection, result.data!.optimized_prompt);
-                            } else {
-                                editBuilder.insert(editor.selection.active, result.data!.optimized_prompt);
+                // Show progress
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: "Optimizing prompt...",
+                    cancellable: false
+                }, async (progress) => {
+                    try {
+                        progress.report({ increment: 50 });
+                        console.log('📡 Making API call to optimize prompt');
+                        
+                        const result = await api.optimizePrompt({
+                            prompt: text,
+                            currentTokens: Math.ceil(text.length / 4),
+                            codeContext: {
+                                language: editor?.document.languageId,
+                                file_path: editor?.document.fileName
                             }
                         });
-                    } else if (action === 'Copy to Clipboard') {
-                        await vscode.env.clipboard.writeText(result.data.optimized_prompt);
-                        vscode.window.showInformationMessage('Optimized prompt copied to clipboard!');
+
+                        progress.report({ increment: 100 });
+                        console.log('📡 Optimization result:', result);
+
+                        if (result.success && result.data) {
+                            const action = await vscode.window.showInformationMessage(
+                                `✨ Prompt optimized! Token reduction: ${result.data.token_reduction}%`,
+                                'Replace Selection',
+                                'Copy to Clipboard',
+                                'Show Details'
+                            );
+
+                            if (action === 'Replace Selection' && editor) {
+                                await editor.edit(editBuilder => {
+                                    if (!editor.selection.isEmpty) {
+                                        editBuilder.replace(editor.selection, result.data!.optimized_prompt);
+                                    } else {
+                                        editBuilder.insert(editor.selection.active, result.data!.optimized_prompt);
+                                    }
+                                });
+                                vscode.window.showInformationMessage('✅ Text replaced with optimized prompt');
+                            } else if (action === 'Copy to Clipboard') {
+                                await vscode.env.clipboard.writeText(result.data.optimized_prompt);
+                                vscode.window.showInformationMessage('📋 Optimized prompt copied to clipboard');
+                            } else if (action === 'Show Details') {
+                                // Show details in a new webview panel
+                                const panel = vscode.window.createWebviewPanel(
+                                    'optimizationDetails',
+                                    'Optimization Details',
+                                    vscode.ViewColumn.Two,
+                                    { enableScripts: true }
+                                );
+
+                                panel.webview.html = getOptimizationDetailsHtml(result.data);
+                            }
+                        } else {
+                            console.error('❌ Optimization failed:', result.error);
+                            vscode.window.showErrorMessage(`Failed to optimize prompt: ${result.error}`);
+                        }
+                    } catch (error) {
+                        console.error('❌ Exception in optimization:', error);
+                        vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
                     }
-                } else {
-                    vscode.window.showErrorMessage(`Failed to optimize prompt: ${result.error}`);
-                }
+                });
             } catch (error) {
-                vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                console.error('❌ Exception in optimize prompt command:', error);
+                vscode.window.showErrorMessage(`Command failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         });
 
@@ -501,46 +546,87 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Get Suggestions Command
         let getSuggestionsCommand = vscode.commands.registerCommand('cost-katana.get-suggestions', async () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                vscode.window.showErrorMessage('No active editor found');
-                return;
-            }
-
-            const selection = editor.selection;
-            const text = editor.document.getText(selection);
-
-            if (!text) {
-                vscode.window.showErrorMessage('Please select code to get suggestions for');
-                return;
-            }
-
             try {
-                const result = await api.getSuggestions({
-                    code_snippet: text,
-                    language: editor.document.languageId,
-                    file_path: editor.document.fileName
-                });
-
-                if (result.success && result.data) {
-                    const suggestions = result.data.suggestions;
-                    if (suggestions.length > 0) {
-                        const items = suggestions.map(s => `${s.title}: ${s.description}`);
-                        const selected = await vscode.window.showQuickPick(items, {
-                            placeHolder: 'Select a suggestion to view details'
-                        });
-                        
-                        if (selected) {
-                            vscode.window.showInformationMessage(selected);
-                        }
+                console.log('💡 Get suggestions command started');
+                const editor = vscode.window.activeTextEditor;
+                
+                // Get code either from selection or current file
+                let code = '';
+                let language = '';
+                let filePath = '';
+                
+                if (editor) {
+                    if (!editor.selection.isEmpty) {
+                        code = editor.document.getText(editor.selection);
                     } else {
-                        vscode.window.showInformationMessage('No suggestions available for this code');
+                        // If no selection, use the entire file content
+                        code = editor.document.getText();
                     }
+                    language = editor.document.languageId;
+                    filePath = editor.document.fileName;
+                    console.log('📝 Got code from editor:', {
+                        language,
+                        filePath,
+                        codeLength: code.length
+                    });
                 } else {
-                    vscode.window.showErrorMessage(`Failed to get suggestions: ${result.error}`);
+                    console.log('❌ No active editor');
+                    vscode.window.showErrorMessage('Please open a file to get suggestions');
+                    return;
                 }
+
+                if (!code) {
+                    console.log('❌ No code provided');
+                    vscode.window.showErrorMessage('Please select code or open a file to get suggestions');
+                    return;
+                }
+
+                // Show progress
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: "Analyzing code...",
+                    cancellable: false
+                }, async (progress) => {
+                    try {
+                        progress.report({ increment: 50 });
+                        console.log('📡 Making API call to get suggestions');
+                        
+                        const result = await api.getSuggestions({
+                            code_snippet: code,
+                            language,
+                            file_path: filePath
+                        });
+
+                        progress.report({ increment: 100 });
+                        console.log('📡 Suggestions result:', result);
+
+                        if (result.success && result.data) {
+                            const suggestions = result.data.suggestions;
+                            if (suggestions.length > 0) {
+                                // Show suggestions in a webview panel
+                                const panel = vscode.window.createWebviewPanel(
+                                    'codeSuggestions',
+                                    'Code Suggestions',
+                                    vscode.ViewColumn.Two,
+                                    { enableScripts: true }
+                                );
+
+                                panel.webview.html = getSuggestionsHtml(suggestions, code);
+                            } else {
+                                vscode.window.showInformationMessage('No suggestions available for this code');
+                            }
+                        } else {
+                            console.error('❌ Getting suggestions failed:', result.error);
+                            vscode.window.showErrorMessage(`Failed to get suggestions: ${result.error}`);
+                        }
+                    } catch (error) {
+                        console.error('❌ Exception in getting suggestions:', error);
+                        vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                    }
+                });
             } catch (error) {
-                vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                console.error('❌ Exception in get suggestions command:', error);
+                vscode.window.showErrorMessage(`Command failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         });
 
@@ -1055,6 +1141,245 @@ function getModelRecommendations(taskType: string, budget: string): Array<{model
 
     return recommendations;
 }
+
+    // Function to generate HTML for optimization details
+    function getOptimizationDetailsHtml(data: any): string {
+        return `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Optimization Details</title>
+                <style>
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        background: var(--vscode-editor-background);
+                        color: var(--vscode-editor-foreground);
+                        padding: 20px;
+                        line-height: 1.6;
+                    }
+                    
+                    .container {
+                        max-width: 800px;
+                        margin: 0 auto;
+                    }
+                    
+                    .header {
+                        margin-bottom: 30px;
+                    }
+                    
+                    .header h1 {
+                        color: var(--vscode-textLink-foreground);
+                        font-size: 24px;
+                        margin-bottom: 10px;
+                    }
+                    
+                    .stats {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 20px;
+                        margin-bottom: 30px;
+                    }
+                    
+                    .stat-card {
+                        background: var(--vscode-editor-background);
+                        border: 1px solid var(--vscode-panel-border);
+                        border-radius: 8px;
+                        padding: 20px;
+                    }
+                    
+                    .stat-value {
+                        font-size: 24px;
+                        font-weight: bold;
+                        color: var(--vscode-textLink-foreground);
+                        margin-bottom: 8px;
+                    }
+                    
+                    .stat-label {
+                        font-size: 14px;
+                        color: var(--vscode-descriptionForeground);
+                    }
+                    
+                    .code-section {
+                        margin-top: 30px;
+                    }
+                    
+                    .code-section h2 {
+                        color: var(--vscode-textLink-foreground);
+                        margin-bottom: 15px;
+                    }
+                    
+                    .code-block {
+                        background: var(--vscode-editor-background);
+                        border: 1px solid var(--vscode-panel-border);
+                        border-radius: 8px;
+                        padding: 20px;
+                        font-family: 'Courier New', monospace;
+                        white-space: pre-wrap;
+                        overflow-x: auto;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>✨ Optimization Results</h1>
+                    </div>
+                    
+                    <div class="stats">
+                        <div class="stat-card">
+                            <div class="stat-value">${data.token_reduction}%</div>
+                            <div class="stat-label">Token Reduction</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${data.original_tokens}</div>
+                            <div class="stat-label">Original Tokens</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${data.optimized_tokens}</div>
+                            <div class="stat-label">Optimized Tokens</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">$${data.cost_savings}</div>
+                            <div class="stat-label">Cost Savings</div>
+                        </div>
+                    </div>
+                    
+                    <div class="code-section">
+                        <h2>Original Prompt</h2>
+                        <div class="code-block">${data.original_prompt}</div>
+                    </div>
+                    
+                    <div class="code-section">
+                        <h2>Optimized Prompt</h2>
+                        <div class="code-block">${data.optimized_prompt}</div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+    }
+
+    // Function to generate HTML for code suggestions
+    function getSuggestionsHtml(suggestions: any[], code: string): string {
+        return `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Code Suggestions</title>
+                <style>
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        background: var(--vscode-editor-background);
+                        color: var(--vscode-editor-foreground);
+                        padding: 20px;
+                        line-height: 1.6;
+                    }
+                    
+                    .container {
+                        max-width: 800px;
+                        margin: 0 auto;
+                    }
+                    
+                    .header {
+                        margin-bottom: 30px;
+                    }
+                    
+                    .header h1 {
+                        color: var(--vscode-textLink-foreground);
+                        font-size: 24px;
+                        margin-bottom: 10px;
+                    }
+                    
+                    .suggestion-card {
+                        background: var(--vscode-editor-background);
+                        border: 1px solid var(--vscode-panel-border);
+                        border-radius: 8px;
+                        padding: 20px;
+                        margin-bottom: 20px;
+                    }
+                    
+                    .suggestion-title {
+                        color: var(--vscode-textLink-foreground);
+                        font-size: 18px;
+                        font-weight: bold;
+                        margin-bottom: 10px;
+                    }
+                    
+                    .suggestion-description {
+                        color: var(--vscode-editor-foreground);
+                        margin-bottom: 15px;
+                    }
+                    
+                    .suggestion-priority {
+                        display: inline-block;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        font-weight: 500;
+                    }
+                    
+                    .priority-high {
+                        background: var(--vscode-errorForeground);
+                        color: var(--vscode-editor-background);
+                    }
+                    
+                    .priority-medium {
+                        background: var(--vscode-warningForeground);
+                        color: var(--vscode-editor-background);
+                    }
+                    
+                    .priority-low {
+                        background: var(--vscode-notificationsInfoIcon-foreground);
+                        color: var(--vscode-editor-background);
+                    }
+                    
+                    .code-section {
+                        margin-top: 30px;
+                    }
+                    
+                    .code-section h2 {
+                        color: var(--vscode-textLink-foreground);
+                        margin-bottom: 15px;
+                    }
+                    
+                    .code-block {
+                        background: var(--vscode-editor-background);
+                        border: 1px solid var(--vscode-panel-border);
+                        border-radius: 8px;
+                        padding: 20px;
+                        font-family: 'Courier New', monospace;
+                        white-space: pre-wrap;
+                        overflow-x: auto;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>💡 Code Suggestions</h1>
+                    </div>
+                    
+                    ${suggestions.map(s => `
+                        <div class="suggestion-card">
+                            <div class="suggestion-title">${s.title}</div>
+                            <div class="suggestion-description">${s.description}</div>
+                            <div class="suggestion-priority priority-${s.priority.toLowerCase()}">${s.priority}</div>
+                        </div>
+                    `).join('')}
+                    
+                    <div class="code-section">
+                        <h2>Analyzed Code</h2>
+                        <div class="code-block">${code}</div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+    }
 
 export function deactivate() {
     console.log('Cost Katana AI Optimizer extension is now deactivated!');
