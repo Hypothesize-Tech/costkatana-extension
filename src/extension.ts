@@ -379,86 +379,163 @@ export function activate(context: vscode.ExtensionContext) {
                     text = editor.document.getText(editor.selection);
                     console.log('📝 Got text from selection:', text.substring(0, 50) + '...');
                 } else {
-                    text = await vscode.window.showInputBox({
-                        prompt: 'Enter the prompt text to optimize',
-                        placeHolder: 'Your prompt text here...',
-                        validateInput: text => {
-                            if (text.length < 10) {
-                                return 'Please enter at least 10 characters';
-                            }
-                            return null;
-                        }
-                    }) || '';
+                    // Create a multi-step input using QuickInput API
+                    const input = vscode.window.createQuickPick();
+                    input.title = 'Optimize Prompt';
+                    input.placeholder = 'Enter your prompt text here...';
+                    input.ignoreFocusOut = true;
+                    input.buttons = [vscode.QuickInputButtons.Back];
                     
-                    if (!text) {
-                        console.log('❌ No text provided');
-                        vscode.window.showInformationMessage('Please provide text to optimize');
-                        return;
-                    }
-                }
-
-                // Show progress
-                await vscode.window.withProgress({
-                    location: vscode.ProgressLocation.Notification,
-                    title: "Optimizing prompt...",
-                    cancellable: false
-                }, async (progress) => {
-                    try {
-                        progress.report({ increment: 50 });
-                        console.log('📡 Making API call to optimize prompt');
-                        
-                        const result = await api.optimizePrompt({
-                            prompt: text,
-                            currentTokens: Math.ceil(text.length / 4),
-                            codeContext: {
-                                language: editor?.document.languageId,
-                                file_path: editor?.document.fileName
+                    return new Promise<void>((resolve) => {
+                        input.onDidAccept(async () => {
+                            text = input.value;
+                            input.hide();
+                            
+                            if (!text) {
+                                console.log('❌ No text provided');
+                                vscode.window.showInformationMessage('Please provide text to optimize');
+                                resolve();
+                                return;
                             }
+
+                            // Show progress
+                            await vscode.window.withProgress({
+                                location: vscode.ProgressLocation.Notification,
+                                title: "Optimizing prompt...",
+                                cancellable: false
+                            }, async (progress) => {
+                                try {
+                                    progress.report({ increment: 50 });
+                                    console.log('📡 Making API call to optimize prompt');
+                                    
+                                    const result = await api.optimizePrompt({
+                                        prompt: text,
+                                        currentTokens: Math.ceil(text.length / 4),
+                                        codeContext: {
+                                            language: editor?.document.languageId,
+                                            file_path: editor?.document.fileName
+                                        }
+                                    });
+
+                                    progress.report({ increment: 100 });
+                                    console.log('📡 Optimization result:', result);
+
+                                    if (result.success && result.data) {
+                                        const action = await vscode.window.showInformationMessage(
+                                            `✨ Prompt optimized! Token reduction: ${result.data.token_reduction}%`,
+                                            'Replace Selection',
+                                            'Copy to Clipboard',
+                                            'Show Details'
+                                        );
+
+                                        if (action === 'Replace Selection' && editor) {
+                                            await editor.edit(editBuilder => {
+                                                if (!editor.selection.isEmpty) {
+                                                    editBuilder.replace(editor.selection, result.data!.optimized_prompt);
+                                                } else {
+                                                    editBuilder.insert(editor.selection.active, result.data!.optimized_prompt);
+                                                }
+                                            });
+                                            vscode.window.showInformationMessage('✅ Text replaced with optimized prompt');
+                                        } else if (action === 'Copy to Clipboard') {
+                                            await vscode.env.clipboard.writeText(result.data.optimized_prompt);
+                                            vscode.window.showInformationMessage('📋 Optimized prompt copied to clipboard');
+                                        } else if (action === 'Show Details') {
+                                            // Show details in a new webview panel
+                                            const panel = vscode.window.createWebviewPanel(
+                                                'optimizationDetails',
+                                                'Optimization Details',
+                                                vscode.ViewColumn.Two,
+                                                { enableScripts: true }
+                                            );
+
+                                            panel.webview.html = getOptimizationDetailsHtml(result.data);
+                                        }
+                                    } else {
+                                        console.error('❌ Optimization failed:', result.error);
+                                        vscode.window.showErrorMessage(`Failed to optimize prompt: ${result.error}`);
+                                    }
+                                } catch (error) {
+                                    console.error('❌ Exception in optimization:', error);
+                                    vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                }
+                            });
+                            resolve();
                         });
 
-                        progress.report({ increment: 100 });
-                        console.log('📡 Optimization result:', result);
+                        input.onDidHide(() => {
+                            resolve();
+                        });
 
-                        if (result.success && result.data) {
-                            const action = await vscode.window.showInformationMessage(
-                                `✨ Prompt optimized! Token reduction: ${result.data.token_reduction}%`,
-                                'Replace Selection',
-                                'Copy to Clipboard',
-                                'Show Details'
-                            );
+                        input.show();
+                    });
+                }
 
-                            if (action === 'Replace Selection' && editor) {
-                                await editor.edit(editBuilder => {
-                                    if (!editor.selection.isEmpty) {
-                                        editBuilder.replace(editor.selection, result.data!.optimized_prompt);
-                                    } else {
-                                        editBuilder.insert(editor.selection.active, result.data!.optimized_prompt);
-                                    }
-                                });
-                                vscode.window.showInformationMessage('✅ Text replaced with optimized prompt');
-                            } else if (action === 'Copy to Clipboard') {
-                                await vscode.env.clipboard.writeText(result.data.optimized_prompt);
-                                vscode.window.showInformationMessage('📋 Optimized prompt copied to clipboard');
-                            } else if (action === 'Show Details') {
-                                // Show details in a new webview panel
-                                const panel = vscode.window.createWebviewPanel(
-                                    'optimizationDetails',
-                                    'Optimization Details',
-                                    vscode.ViewColumn.Two,
-                                    { enableScripts: true }
+                // If we got text from selection, process it
+                if (text) {
+                    // Show progress
+                    await vscode.window.withProgress({
+                        location: vscode.ProgressLocation.Notification,
+                        title: "Optimizing prompt...",
+                        cancellable: false
+                    }, async (progress) => {
+                        try {
+                            progress.report({ increment: 50 });
+                            console.log('📡 Making API call to optimize prompt');
+                            
+                            const result = await api.optimizePrompt({
+                                prompt: text,
+                                currentTokens: Math.ceil(text.length / 4),
+                                codeContext: {
+                                    language: editor?.document.languageId,
+                                    file_path: editor?.document.fileName
+                                }
+                            });
+
+                            progress.report({ increment: 100 });
+                            console.log('📡 Optimization result:', result);
+
+                            if (result.success && result.data) {
+                                const action = await vscode.window.showInformationMessage(
+                                    `✨ Prompt optimized! Token reduction: ${result.data.token_reduction}%`,
+                                    'Replace Selection',
+                                    'Copy to Clipboard',
+                                    'Show Details'
                                 );
 
-                                panel.webview.html = getOptimizationDetailsHtml(result.data);
+                                if (action === 'Replace Selection' && editor) {
+                                    await editor.edit(editBuilder => {
+                                        if (!editor.selection.isEmpty) {
+                                            editBuilder.replace(editor.selection, result.data!.optimized_prompt);
+                                        } else {
+                                            editBuilder.insert(editor.selection.active, result.data!.optimized_prompt);
+                                        }
+                                    });
+                                    vscode.window.showInformationMessage('✅ Text replaced with optimized prompt');
+                                } else if (action === 'Copy to Clipboard') {
+                                    await vscode.env.clipboard.writeText(result.data.optimized_prompt);
+                                    vscode.window.showInformationMessage('📋 Optimized prompt copied to clipboard');
+                                } else if (action === 'Show Details') {
+                                    // Show details in a new webview panel
+                                    const panel = vscode.window.createWebviewPanel(
+                                        'optimizationDetails',
+                                        'Optimization Details',
+                                        vscode.ViewColumn.Two,
+                                        { enableScripts: true }
+                                    );
+
+                                    panel.webview.html = getOptimizationDetailsHtml(result.data);
+                                }
+                            } else {
+                                console.error('❌ Optimization failed:', result.error);
+                                vscode.window.showErrorMessage(`Failed to optimize prompt: ${result.error}`);
                             }
-                        } else {
-                            console.error('❌ Optimization failed:', result.error);
-                            vscode.window.showErrorMessage(`Failed to optimize prompt: ${result.error}`);
+                        } catch (error) {
+                            console.error('❌ Exception in optimization:', error);
+                            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
                         }
-                    } catch (error) {
-                        console.error('❌ Exception in optimization:', error);
-                        vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                    }
-                });
+                    });
+                }
             } catch (error) {
                 console.error('❌ Exception in optimize prompt command:', error);
                 vscode.window.showErrorMessage(`Command failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -598,8 +675,26 @@ export function activate(context: vscode.ExtensionContext) {
                     if (!editor.selection.isEmpty) {
                         code = editor.document.getText(editor.selection);
                     } else {
-                        // If no selection, use the entire file content
-                        code = editor.document.getText();
+                        // If no selection, show quick pick to choose
+                        const choice = await vscode.window.showQuickPick(
+                            ['Analyze entire file', 'Select code manually'],
+                            {
+                                placeHolder: 'What would you like to analyze?',
+                                ignoreFocusOut: true
+                            }
+                        );
+
+                        if (!choice) {
+                            return;
+                        }
+
+                        if (choice === 'Analyze entire file') {
+                            code = editor.document.getText();
+                        } else {
+                            // Show message to select code
+                            vscode.window.showInformationMessage('Please select the code you want to analyze, then run the command again.');
+                            return;
+                        }
                     }
                     language = editor.document.languageId;
                     filePath = editor.document.fileName;
@@ -627,7 +722,7 @@ export function activate(context: vscode.ExtensionContext) {
                     cancellable: false
                 }, async (progress) => {
                     try {
-                        progress.report({ increment: 50 });
+                        progress.report({ increment: 50, message: 'Analyzing code structure...' });
                         console.log('📡 Making API call to get suggestions');
                         
                         const result = await api.getSuggestions({
@@ -636,7 +731,7 @@ export function activate(context: vscode.ExtensionContext) {
                             file_path: filePath
                         });
 
-                        progress.report({ increment: 100 });
+                        progress.report({ increment: 100, message: 'Processing results...' });
                         console.log('📡 Suggestions result:', result);
 
                         if (result.success && result.data) {
@@ -651,6 +746,30 @@ export function activate(context: vscode.ExtensionContext) {
                                 );
 
                                 panel.webview.html = getSuggestionsHtml(suggestions, code);
+
+                                // Handle webview messages
+                                panel.webview.onDidReceiveMessage(
+                                    message => {
+                                        switch (message.command) {
+                                            case 'applySuggestion':
+                                                if (editor) {
+                                                    editor.edit(editBuilder => {
+                                                        if (!editor.selection.isEmpty) {
+                                                            editBuilder.replace(editor.selection, message.code);
+                                                        } else {
+                                                            editBuilder.replace(new vscode.Range(
+                                                                editor.document.positionAt(0),
+                                                                editor.document.positionAt(editor.document.getText().length)
+                                                            ), message.code);
+                                                        }
+                                                    });
+                                                }
+                                                break;
+                                    }
+                                },
+                                undefined,
+                                context.subscriptions
+                            );
                             } else {
                                 vscode.window.showInformationMessage('No suggestions available for this code');
                             }
