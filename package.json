@@ -2,7 +2,7 @@
   "name": "cost-katana-ai-optimizer",
   "displayName": "Cost Katana AI Optimizer",
   "description": "AI-powered cost optimization for Cursor/VS Code - Track, analyze, and optimize AI usage across 30+ models (GPT-4, Claude, Gemini, etc.)",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "publisher": "abdulsagheer",
   "repository": {
     "type": "git",
@@ -62,85 +62,85 @@
     "onCommand:cost-katana.get-prompt-templates"
   ],
   "main": "./out/extension.js",
-      "contributes": {
-        "configuration": {
-            "title": "Cost Katana AI Optimizer",
-            "properties": {
-                "costKatana.backendUrl": {
-                    "type": "string",
-                    "default": "https://cost-katana-backend.store/api",
-                    "description": "The URL of the Cost Katana backend API."
-                },
-                "costKatana.apiKey": {
-                    "type": "string",
-                    "description": "Your Cost Katana API Key for authentication."
-                },
-                "costKatana.userId": {
-                    "type": "string",
-                    "description": "Your Cost Katana User ID for authentication."
-                },
-                "costKatana.userEmail": {
-                    "type": "string",
-                    "description": "Your Cost Katana email address."
-                },
-                "costKatana.automaticTracking": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable automatic tracking of AI interactions in Cursor."
-                }
-            }
+  "contributes": {
+    "configuration": {
+      "title": "Cost Katana AI Optimizer",
+      "properties": {
+        "costKatana.backendUrl": {
+          "type": "string",
+          "default": "https://cost-katana-backend.store/api",
+          "description": "The URL of the Cost Katana backend API."
         },
+        "costKatana.apiKey": {
+          "type": "string",
+          "description": "Your Cost Katana API Key for authentication."
+        },
+        "costKatana.userId": {
+          "type": "string",
+          "description": "Your Cost Katana User ID for authentication."
+        },
+        "costKatana.userEmail": {
+          "type": "string",
+          "description": "Your Cost Katana email address."
+        },
+        "costKatana.automaticTracking": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic tracking of AI interactions in Cursor."
+        }
+      }
+    },
     "commands": [
-              {
-            "command": "cost-katana.connect-account",
-            "title": "Cost Katana: Connect Account",
-            "category": "Cost Katana"
-        },
-        {
-            "command": "cost-katana.track-usage",
-            "title": "Cost Katana: Track AI Usage",
-            "category": "Cost Katana"
-        },
-        {
-            "command": "cost-katana.optimize-prompt",
-            "title": "Cost Katana: Optimize Prompt",
-            "category": "Cost Katana"
-        },
-        {
-            "command": "cost-katana.show-analytics",
-            "title": "Cost Katana: Show Analytics",
-            "category": "Cost Katana"
-        },
-        {
-            "command": "cost-katana.setup-workspace",
-            "title": "Cost Katana: Setup Workspace",
-            "category": "Cost Katana"
-        },
-        {
-            "command": "cost-katana.get-suggestions",
-            "title": "Cost Katana: Get Suggestions",
-            "category": "Cost Katana"
-        },
-        {
-            "command": "cost-katana.analyze-code",
-            "title": "Cost Katana: Analyze Code",
-            "category": "Cost Katana"
-        },
-        {
-            "command": "cost-katana.get-model-recommendations",
-            "title": "Cost Katana: Get Model Recommendations",
-            "category": "Cost Katana"
-        },
-        {
-            "command": "cost-katana.get-personalized-tips",
-            "title": "Cost Katana: Get Personalized Tips",
-            "category": "Cost Katana"
-        },
-        {
-            "command": "cost-katana.toggle-automatic-tracking",
-            "title": "Cost Katana: Toggle Automatic Tracking",
-            "category": "Cost Katana"
-        },
+      {
+        "command": "cost-katana.connect-account",
+        "title": "Cost Katana: Connect Account",
+        "category": "Cost Katana"
+      },
+      {
+        "command": "cost-katana.track-usage",
+        "title": "Cost Katana: Track AI Usage",
+        "category": "Cost Katana"
+      },
+      {
+        "command": "cost-katana.optimize-prompt",
+        "title": "Cost Katana: Optimize Prompt",
+        "category": "Cost Katana"
+      },
+      {
+        "command": "cost-katana.show-analytics",
+        "title": "Cost Katana: Show Analytics",
+        "category": "Cost Katana"
+      },
+      {
+        "command": "cost-katana.setup-workspace",
+        "title": "Cost Katana: Setup Workspace",
+        "category": "Cost Katana"
+      },
+      {
+        "command": "cost-katana.get-suggestions",
+        "title": "Cost Katana: Get Suggestions",
+        "category": "Cost Katana"
+      },
+      {
+        "command": "cost-katana.analyze-code",
+        "title": "Cost Katana: Analyze Code",
+        "category": "Cost Katana"
+      },
+      {
+        "command": "cost-katana.get-model-recommendations",
+        "title": "Cost Katana: Get Model Recommendations",
+        "category": "Cost Katana"
+      },
+      {
+        "command": "cost-katana.get-personalized-tips",
+        "title": "Cost Katana: Get Personalized Tips",
+        "category": "Cost Katana"
+      },
+      {
+        "command": "cost-katana.toggle-automatic-tracking",
+        "title": "Cost Katana: Toggle Automatic Tracking",
+        "category": "Cost Katana"
+      },
       {
         "command": "cost-katana.validate-connection",
         "title": "Cost Katana: Validate Connection",
