@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import axios from 'axios';
 
 interface APIResponse<T = any> {
     success: boolean;
@@ -96,23 +95,23 @@ export class CostKatanaAPI {
                 console.log('Request data:', JSON.stringify(data, null, 2));
             }
 
-            const response = await axios({
-                method: method.toLowerCase(),
-                url,
-                headers,
-                data: data ? JSON.stringify(data) : undefined,
-                timeout: 10000, // 10 second timeout
-            });
+            const requestOptions: RequestInit = {
+                method: method,
+                headers: headers,
+                body: data ? JSON.stringify(data) : undefined,
+            };
 
-            const result = response.data;
+            const response = await fetch(url, requestOptions);
+            const result = await response.json() as APIResponse<T>;
+            
             console.log('Response status:', response.status);
             console.log('Response data:', JSON.stringify(result, null, 2));
 
-            if (response.status >= 400) {
+            if (!response.ok) {
                 return {
                     success: false,
-                    error: result.error || `HTTP ${response.status}: ${response.statusText}`,
-                    message: result.message || 'Request failed'
+                    error: (result as any).error || `HTTP ${response.status}: ${response.statusText}`,
+                    message: (result as any).message || 'Request failed'
                 };
             }
 
@@ -120,26 +119,12 @@ export class CostKatanaAPI {
         } catch (error) {
             console.error('API request failed:', error);
             
-            if (axios.isAxiosError(error)) {
-                if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-                    return {
-                        success: false,
-                        error: `Cannot connect to backend server. Please check if the backend URL is correct: ${this.baseUrl}`,
-                        message: 'Network connection failed'
-                    };
-                } else if (error.response) {
-                    return {
-                        success: false,
-                        error: `HTTP ${error.response.status}: ${error.response.statusText}`,
-                        message: error.response.data?.message || 'Request failed'
-                    };
-                } else if (error.request) {
-                    return {
-                        success: false,
-                        error: 'No response received from server',
-                        message: 'Request timeout or network error'
-                    };
-                }
+            if (error instanceof TypeError && error.message.includes('fetch')) {
+                return {
+                    success: false,
+                    error: `Cannot connect to backend server. Please check if the backend URL is correct: ${this.baseUrl}`,
+                    message: 'Network connection failed'
+                };
             }
             
             return {
