@@ -124,6 +124,34 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Manual Track AI Usage Command
     let trackUsageCommand = vscode.commands.registerCommand('cost-katana.track-usage', async () => {
+        // Check if API key is configured
+        if (!api.hasApiKey) {
+            const action = await vscode.window.showErrorMessage(
+                'API key not configured. Please connect your account first.',
+                'Connect Account',
+                'Configure Manually'
+            );
+            
+            if (action === 'Connect Account') {
+                vscode.commands.executeCommand('cost-katana.connect-account');
+            } else if (action === 'Configure Manually') {
+                const apiKey = await vscode.window.showInputBox({
+                    prompt: 'Enter your Cost Katana API Key',
+                    password: true,
+                    placeHolder: 'your-api-key-here'
+                });
+                
+                if (apiKey) {
+                    api.updateApiKey(apiKey);
+                    vscode.window.showInformationMessage('API key configured successfully!');
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('No active editor found');
@@ -194,32 +222,49 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
-        try {
-            const result = await api.trackUsage({
-                prompt,
-                response,
-                model,
-                codeContext: {
-                    file_path: editor.document.fileName,
-                    language: editor.document.languageId
-                }
-            });
-
-            if (result.success && result.data) {
-                vscode.window.showInformationMessage(
-                    `Usage tracked! Cost: $${result.data.cost}, Tokens: ${result.data.tokens}`
-                );
+        // Show progress
+        vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "Tracking AI usage...",
+            cancellable: false
+        }, async (progress) => {
+            try {
+                progress.report({ increment: 50 });
                 
-                // Show smart tip if available
-                if (result.data.smart_tip) {
-                    vscode.window.showInformationMessage(result.data.smart_tip);
+                const result = await api.trackUsage({
+                    prompt,
+                    response,
+                    model,
+                    codeContext: {
+                        file_path: editor.document.fileName,
+                        language: editor.document.languageId
+                    }
+                });
+
+                progress.report({ increment: 100 });
+
+                if (result.success && result.data) {
+                    vscode.window.showInformationMessage(
+                        `✅ Usage tracked successfully!\n💰 Cost: $${result.data.cost}\n🔢 Tokens: ${result.data.tokens}`
+                    );
+                    
+                    // Show smart tip if available
+                    if (result.data.smart_tip) {
+                        setTimeout(() => {
+                            vscode.window.showInformationMessage(`💡 Tip: ${result.data!.smart_tip}`);
+                        }, 1000);
+                    }
+                } else {
+                    vscode.window.showErrorMessage(
+                        `❌ Failed to track usage: ${result.error || 'Unknown error'}\n\nPlease check your API key and network connection.`
+                    );
                 }
-            } else {
-                vscode.window.showErrorMessage(`Failed to track usage: ${result.error}`);
+            } catch (error) {
+                vscode.window.showErrorMessage(
+                    `❌ Error tracking usage: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your network connection and try again.`
+                );
             }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+        });
     });
 
     // Optimize Prompt Command
@@ -516,6 +561,50 @@ ${analysis.recommendations.map((rec, i) => `${i + 1}. ${rec}`).join('\n')}
         await vscode.workspace.getConfiguration('costKatana').update('automaticTracking', automaticTrackingEnabled, true);
     });
 
+    // Configure Extension Command
+    let configureExtensionCommand = vscode.commands.registerCommand('cost-katana.configure', async () => {
+        const config = vscode.workspace.getConfiguration('costKatana');
+        
+        // Backend URL configuration
+        const currentBackendUrl = (config.get('backendUrl') as string) || 'https://cost-katana-backend.store/api';
+        const backendUrl = await vscode.window.showInputBox({
+            prompt: 'Enter the backend URL',
+            value: currentBackendUrl,
+            placeHolder: 'https://cost-katana-backend.store/api'
+        });
+        
+        if (backendUrl) {
+            api.updateBaseUrl(backendUrl);
+        }
+        
+        // API Key configuration
+        const currentApiKey = (config.get('apiKey') as string) || '';
+        const apiKey = await vscode.window.showInputBox({
+            prompt: 'Enter your API Key',
+            value: currentApiKey,
+            password: true,
+            placeHolder: 'your-api-key-here'
+        });
+        
+        if (apiKey) {
+            api.updateApiKey(apiKey);
+        }
+        
+        // User ID configuration
+        const currentUserId = (config.get('userId') as string) || '';
+        const userId = await vscode.window.showInputBox({
+            prompt: 'Enter your User ID',
+            value: currentUserId,
+            placeHolder: 'your-user-id-here'
+        });
+        
+        if (userId) {
+            api.updateUserId(userId);
+        }
+        
+        vscode.window.showInformationMessage('Configuration updated successfully!');
+    });
+
     // Register all commands
     context.subscriptions.push(
         connectAccountCommand,
@@ -527,6 +616,7 @@ ${analysis.recommendations.map((rec, i) => `${i + 1}. ${rec}`).join('\n')}
         analyzeCodeCommand,
         getModelRecommendationsCommand,
         toggleAutomaticTrackingCommand,
+        configureExtensionCommand,
         cursorAIListener,
         documentChangeListener
     );

@@ -80,25 +80,62 @@ export class CostKatanaAPI {
                 'Content-Type': 'application/json',
             };
 
+            // Add authentication headers if available
+            if (this.apiKey) {
+                headers['Authorization'] = `Bearer ${this.apiKey}`;
+            }
+
+            console.log(`Making ${method} request to: ${url}`);
+            if (data) {
+                console.log('Request data:', JSON.stringify(data, null, 2));
+            }
+
             const response = await axios({
                 method: method.toLowerCase(),
                 url,
                 headers,
                 data: data ? JSON.stringify(data) : undefined,
+                timeout: 10000, // 10 second timeout
             });
 
             const result = response.data;
+            console.log('Response status:', response.status);
+            console.log('Response data:', JSON.stringify(result, null, 2));
 
             if (response.status >= 400) {
                 return {
                     success: false,
                     error: result.error || `HTTP ${response.status}: ${response.statusText}`,
-                    message: result.message
+                    message: result.message || 'Request failed'
                 };
             }
 
             return result;
         } catch (error) {
+            console.error('API request failed:', error);
+            
+            if (axios.isAxiosError(error)) {
+                if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+                    return {
+                        success: false,
+                        error: `Cannot connect to backend server. Please check if the backend URL is correct: ${this.baseUrl}`,
+                        message: 'Network connection failed'
+                    };
+                } else if (error.response) {
+                    return {
+                        success: false,
+                        error: `HTTP ${error.response.status}: ${error.response.statusText}`,
+                        message: error.response.data?.message || 'Request failed'
+                    };
+                } else if (error.request) {
+                    return {
+                        success: false,
+                        error: 'No response received from server',
+                        message: 'Request timeout or network error'
+                    };
+                }
+            }
+            
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
