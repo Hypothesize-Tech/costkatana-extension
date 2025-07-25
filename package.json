@@ -75,7 +75,8 @@
     "onCommand:cost-katana.analyze-code",
     "onCommand:cost-katana.get-model-recommendations",
     "onCommand:cost-katana.toggle-automatic-tracking",
-    "onCommand:cost-katana.configure"
+    "onCommand:cost-katana.configure",
+    "onCommand:cost-katana.test"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -146,6 +147,10 @@
       {
         "command": "cost-katana.configure",
         "title": "Cost Katana: Configure Extension"
+      },
+      {
+        "command": "cost-katana.test",
+        "title": "Cost Katana: Test Extension"
       }
     ]
   },
