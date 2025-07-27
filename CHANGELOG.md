@@ -5,6 +5,25 @@ All notable changes to the Cost Katana AI Optimizer extension will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.20] - 2025-01-27
+
+### Added
+- **Real-time Usage Tracking**: Extension now tracks actual usage instead of mock data
+- **Live Analytics Dashboard**: Auto-refreshing analytics panel with real-time updates
+- **Visual Status Indicators**: Live connection status and update notifications
+- **Enhanced Error Handling**: Better error reporting and retry mechanisms
+
+### Fixed
+- **Real Data Integration**: Fixed extension to use actual AICostTrackerService for tracking
+- **Dashboard Sync**: Extension usage now immediately updates web dashboard via SSE
+- **Budget Visibility**: Fixed budget information display in requests and analytics
+- **TypeScript Compilation**: Resolved all build errors for production deployment
+
+### Improved
+- **User Experience**: Added loading states, update notifications, and visual feedback
+- **Performance**: Optimized real-time updates and reduced polling frequency
+- **Code Quality**: Enhanced type safety and removed unused code
+
 ## [1.0.0] - 2024-07-24
 
 ### Added

@@ -557,23 +557,44 @@ export function activate(context: vscode.ExtensionContext) {
                     const summary = result.data.summary;
                     const cursorSpecific = result.data.cursor_specific;
                     
-                    // Create a beautiful webview panel for analytics
-                    const panel = vscode.window.createWebviewPanel(
-                        'costKatanaAnalytics',
-                        'Cost Katana Analytics',
-                        vscode.ViewColumn.One,
-                        {
-                            enableScripts: true,
-                            retainContextWhenHidden: true
-                        }
-                    );
+                                    // Create a beautiful webview panel for analytics
+                const panel = vscode.window.createWebviewPanel(
+                    'costKatanaAnalytics',
+                    'Cost Katana Analytics',
+                    vscode.ViewColumn.One,
+                    {
+                        enableScripts: true,
+                        retainContextWhenHidden: true
+                    }
+                );
 
-                    // Create beautiful HTML content
-                    panel.webview.html = getAnalyticsHtml(summary, cursorSpecific);
+                // Create beautiful HTML content with real-time updates
+                panel.webview.html = getAnalyticsHtml(summary, cursorSpecific, true);
+                
+                // Set up auto-refresh for real-time updates
+                const refreshInterval = setInterval(async () => {
+                    if (panel.visible) {
+                        try {
+                            const freshResult = await api.getAnalytics();
+                            if (freshResult.success && freshResult.data) {
+                                panel.webview.postMessage({
+                                    command: 'updateData',
+                                    data: freshResult.data
+                                });
+                            }
+                        } catch (error) {
+                            console.error('Auto-refresh error:', error);
+                        }
+                    }
+                }, 15000); // Refresh every 15 seconds
+                
+                panel.onDidDispose(() => {
+                    clearInterval(refreshInterval);
+                });
                     
                     // Handle messages from webview
                     panel.webview.onDidReceiveMessage(
-                        message => {
+                        async message => {
                             switch (message.command) {
                                 case 'trackUsage':
                                     vscode.commands.executeCommand('cost-katana.track-usage');
@@ -585,7 +606,20 @@ export function activate(context: vscode.ExtensionContext) {
                                     vscode.commands.executeCommand('cost-katana.get-suggestions');
                                     break;
                                 case 'refresh':
-                                    vscode.commands.executeCommand('cost-katana.show-analytics');
+                                    console.log('🔄 Manual refresh requested');
+                                    try {
+                                        const freshResult = await api.getAnalytics();
+                                        if (freshResult.success && freshResult.data) {
+                                            panel.webview.postMessage({
+                                                command: 'updateData',
+                                                data: freshResult.data
+                                            });
+                                            vscode.window.showInformationMessage('📊 Analytics updated!');
+                                        }
+                                    } catch (error) {
+                                        console.error('Manual refresh error:', error);
+                                        vscode.window.showErrorMessage('Failed to refresh analytics');
+                                    }
                                     break;
                             }
                         },
@@ -1021,7 +1055,67 @@ ${analysis.recommendations.map((rec, i) => `${i + 1}. ${rec}`).join('\n')}
 }
 
 // Function to generate beautiful HTML for analytics
-function getAnalyticsHtml(summary: any, cursorSpecific: any): string {
+function getLoadingHtml(): string {
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Cost Katana Analytics</title>
+            <style>
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    padding: 20px;
+                    background: #1e1e1e;
+                    color: #fff;
+                    margin: 0;
+                }
+                .loading { text-align: center; padding: 50px; }
+                .spinner { 
+                    border: 4px solid #333;
+                    border-top: 4px solid #007acc;
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 20px;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading analytics data...</p>
+            </div>
+        </body>
+        </html>
+    `;
+}
+
+function getErrorHtml(error: string): string {
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Analytics Error</title>
+            <style>body { font-family: sans-serif; padding: 20px; background: #1e1e1e; color: #fff; }</style>
+        </head>
+        <body>
+            <h2>❌ Failed to Load Analytics</h2>
+            <p>Error: ${error}</p>
+            <button onclick="window.location.reload()">🔄 Retry</button>
+        </body>
+        </html>
+    `;
+}
+
+function getAnalyticsHtml(summary: any, cursorSpecific: any, enableRealTime: boolean = false): string {
     return `
         <!DOCTYPE html>
         <html lang="en">
@@ -1242,13 +1336,82 @@ function getAnalyticsHtml(summary: any, cursorSpecific: any): string {
                     </div>
                 </div>
                 
+                <div id="update-notification" style="
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #4CAF50;
+                    color: white;
+                    padding: 10px 20px;
+                    border-radius: 5px;
+                    display: none;
+                    opacity: 0;
+                    transition: opacity 0.3s;
+                    z-index: 1000;
+                ">
+                    📊 Data updated!
+                </div>
+                
                 <div class="footer">
                     <p>Cost Katana AI Optimizer v1.0.15 • Powered by AI Cost Optimization</p>
+                    <p id="last-updated" style="font-size: 12px; color: #888; margin-top: 5px;">
+                        Last updated: ${new Date().toLocaleTimeString()}
+                    </p>
+                    ${enableRealTime ? '<p style="font-size: 12px; color: #00ff00;">● Real-time updates enabled</p>' : ''}
                 </div>
             </div>
             
             <script>
                 const vscode = acquireVsCodeApi();
+                let realTimeEnabled = ${enableRealTime};
+                
+                // Listen for messages from extension
+                window.addEventListener('message', event => {
+                    const message = event.data;
+                    switch (message.command) {
+                        case 'updateData':
+                            updateAnalyticsDisplay(message.data);
+                            showUpdateNotification();
+                            break;
+                    }
+                });
+                
+                function updateAnalyticsDisplay(data) {
+                    const summary = data.summary;
+                    const cursorSpecific = data.cursor_specific || {};
+                    
+                    // Update stat cards
+                    const statCards = document.querySelectorAll('.stat-card .stat-value');
+                    if (statCards[0]) statCards[0].textContent = '$' + (summary.total_spending_this_month || '0.00');
+                    if (statCards[1]) statCards[1].textContent = summary.budget_used || '0%';
+                    if (statCards[2]) statCards[2].textContent = summary.active_projects || '0';
+                    if (statCards[3]) statCards[3].textContent = cursorSpecific.total_requests || '0';
+                    
+                    // Update usage details
+                    const usageValues = document.querySelectorAll('.usage-item .usage-value');
+                    if (usageValues[0]) usageValues[0].textContent = cursorSpecific.total_requests || '0';
+                    if (usageValues[1]) usageValues[1].textContent = cursorSpecific.average_tokens_per_request || '0';
+                    
+                    // Update timestamp
+                    const timestamp = document.getElementById('last-updated');
+                    if (timestamp) {
+                        timestamp.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+                    }
+                }
+                
+                function showUpdateNotification() {
+                    const notification = document.getElementById('update-notification');
+                    if (notification) {
+                        notification.style.display = 'block';
+                        notification.style.opacity = '1';
+                        setTimeout(() => {
+                            notification.style.opacity = '0';
+                            setTimeout(() => {
+                                notification.style.display = 'none';
+                            }, 300);
+                        }, 2000);
+                    }
+                }
                 
                 function trackUsage() {
                     vscode.postMessage({ command: 'trackUsage' });
@@ -1263,7 +1426,28 @@ function getAnalyticsHtml(summary: any, cursorSpecific: any): string {
                 }
                 
                 function refresh() {
+                    const refreshBtn = document.querySelector('.refresh-btn');
+                    if (refreshBtn) {
+                        refreshBtn.innerHTML = '⟳ Refreshing...';
+                        refreshBtn.disabled = true;
+                    }
+                    
                     vscode.postMessage({ command: 'refresh' });
+                    
+                    setTimeout(() => {
+                        if (refreshBtn) {
+                            refreshBtn.innerHTML = '🔄 Refresh';
+                            refreshBtn.disabled = false;
+                        }
+                    }, 1000);
+                }
+                
+                // Add visual indicators for real-time updates
+                if (realTimeEnabled) {
+                    const header = document.querySelector('h1');
+                    if (header) {
+                        header.innerHTML += ' <span style="color: #00ff00; font-size: 12px;">● LIVE</span>';
+                    }
                 }
             </script>
         </body>
