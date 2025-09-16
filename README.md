@@ -1,4 +1,4 @@
-# Cost Katana AI Optimizer for Cursor
+# CostKatana for Cursor
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://marketplace.visualstudio.com/items?itemName=cost-katana.ai-optimizer)
 [![Downloads](https://img.shields.io/badge/downloads-0-brightgreen.svg)](https://marketplace.visualstudio.com/items?itemName=cost-katana.ai-optimizer)
