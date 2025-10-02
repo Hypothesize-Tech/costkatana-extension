@@ -159,7 +159,6 @@ In Cursor settings, you can configure:
 - Track template performance and costs
 
 ### **Predictive Analytics**
-- See cost forecasts for your upcoming projects
 - Get alerts when spending might exceed your budget
 - Identify trends in your AI usage patterns
 
