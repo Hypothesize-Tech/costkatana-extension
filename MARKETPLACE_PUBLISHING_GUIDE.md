@@ -255,6 +255,6 @@ Once published, your extension will be available at:
 - **VS Code Extension API**: https://code.visualstudio.com/api
 - **Marketplace Documentation**: https://docs.microsoft.com/en-us/azure/devops/extend/publish/overview
 - **Publisher Support**: https://aka.ms/vscode-discussions
-- **Cost Katana Backend**: https://cost-katana-backend.store/api
+- **Cost Katana Backend**: https://api.costkatana.com/api
 
 **Happy publishing! 🚀** 

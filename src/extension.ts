@@ -929,11 +929,11 @@ ${analysis.recommendations.map((rec, i) => `${i + 1}. ${rec}`).join('\n')}
             const config = vscode.workspace.getConfiguration('costKatana');
             
             // Backend URL configuration
-            const currentBackendUrl = (config.get('backendUrl') as string) || 'https://cost-katana-backend.store/api';
+            const currentBackendUrl = (config.get('backendUrl') as string) || 'https://api.costkatana.com/api';
             const backendUrl = await vscode.window.showInputBox({
                 prompt: 'Enter the backend URL',
                 value: currentBackendUrl,
-                placeHolder: 'https://cost-katana-backend.store/api'
+                placeHolder: 'https://api.costkatana.com/api'
             });
             
             if (backendUrl) {

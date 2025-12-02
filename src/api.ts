@@ -64,7 +64,7 @@ export class CostKatanaAPI {
     constructor() {
         console.log('🔧 Initializing CostKatanaAPI');
         const config = vscode.workspace.getConfiguration('costKatana');
-        this.baseUrl = config.get('backendUrl') || 'https://cost-katana-backend.store/api';
+        this.baseUrl = config.get('backendUrl') || 'https://api.costkatana.com/api';
         this.apiKey = config.get('apiKey');
         this.userId = config.get('userId');
         

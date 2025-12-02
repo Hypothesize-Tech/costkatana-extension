@@ -92,7 +92,7 @@
       "properties": {
         "costKatana.backendUrl": {
           "type": "string",
-          "default": "https://cost-katana-backend.store/api",
+          "default": "https://api.costkatana.com/api",
           "description": "The URL of the Cost Katana backend API."
         },
         "costKatana.apiKey": {

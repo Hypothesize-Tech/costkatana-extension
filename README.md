@@ -105,7 +105,7 @@ To see your spending patterns:
 In Cursor settings, you can configure:
 ```json
 {
-  "costKatana.backendUrl": "https://cost-katana-backend.store/api",
+  "costKatana.backendUrl": "https://api.costkatana.com/api",
   "costKatana.apiKey": "your-api-key-here",
   "costKatana.autoTrack": true,
   "costKatana.showNotifications": true
